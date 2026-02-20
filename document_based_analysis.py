@@ -1,0 +1,401 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+基于文档的精确波纹度分析
+
+关键发现：
+1. 使用 y = A×sin(order×θ) + B×cos(order×θ) 形式
+2. 振幅 = √(A² + B²)
+3. 迭代提取10个最大分量
+4. 搜索阶次范围：1到5×ZE
+"""
+
+import numpy as np
+from numpy.linalg import lstsq
+import logging
+import os
+import sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(current_dir, 'gear_analysis_refactored'))
+
+from utils.file_parser import parse_mka_file
+
+logging.basicConfig(level=logging.WARNING)
+
+# Klingelnberg参考数据
+KLINGELNBERG_SAMPLE1 = {
+    'right_profile': {87: 0.47, 174: 0.17, 261: 0.09, 348: 0.06, 435: 0.05, 522: 0.06, 609: 0.04, 696: 0.04},
+    'left_profile': {87: 0.66, 174: 0.24, 261: 0.09, 348: 0.06, 435: 0.05, 522: 0.06, 609: 0.04, 696: 0.04},
+    'right_helix': {87: 0.28, 174: 0.12, 261: 0.08, 348: 0.05, 435: 0.04, 522: 0.04, 609: 0.03, 696: 0.03},
+    'left_helix': {87: 0.32, 174: 0.14, 261: 0.09, 348: 0.06, 435: 0.04, 522: 0.04, 609: 0.03, 696: 0.03}
+}
+
+KLINGELNBERG_SAMPLE2 = {
+    'right_profile': {26: 0.19, 52: 0.07, 78: 0.10, 104: 0.05, 130: 0.05, 156: 0.06, 182: 0.08},
+    'left_profile': {22: 0.03, 26: 0.24, 44: 0.04, 52: 0.19, 78: 0.09, 104: 0.16, 130: 0.09, 156: 0.06, 182: 0.08},
+    'right_helix': {26: 0.03, 52: 0.06, 78: 0.03, 141: 0.03, 156: 0.02},
+    'left_helix': {26: 0.07, 48: 0.03, 52: 0.08, 78: 0.04, 104: 0.03, 130: 0.02, 141: 0.04, 182: 0.02}
+}
+
+
+def involute_angle(r, rb):
+    ratio = np.clip(rb / np.where(r > 0, r, 1e-10), -1, 1)
+    alpha_r = np.arccos(ratio)
+    return np.tan(alpha_r) - alpha_r
+
+
+def prepare_profile_data(profile_dict, alpha_deg=20.0):
+    profiles = []
+    for tooth_num in sorted(profile_dict.keys()):
+        data = profile_dict[tooth_num]
+        n = len(data) // 2
+        r = np.array(data[:n])
+        dev = np.array(data[n:])
+        rb = r * np.cos(np.radians(alpha_deg))
+        profiles.append({
+            'r': r, 'dev': dev,
+            'rb': rb[0] if len(rb) > 0 else r[0] * np.cos(np.radians(alpha_deg))
+        })
+    return profiles
+
+
+def prepare_helix_data(flank_dict):
+    flank_lines = []
+    for tooth_num in sorted(flank_dict.keys()):
+        data = flank_dict[tooth_num]
+        n = len(data) // 2
+        z = np.array(data[:n])
+        dev = np.array(data[n:])
+        flank_lines.append({'z': z, 'dev': dev})
+    return flank_lines
+
+
+def merge_profile_curves(profiles, tooth_positions, ZE):
+    all_phi = []
+    all_dev = []
+    rb = profiles[0]['rb']
+    
+    for i, (profile, pos) in enumerate(zip(profiles, tooth_positions)):
+        r = profile['r']
+        dev = profile['dev']
+        xi = involute_angle(r, rb)
+        tau = 2 * np.pi * pos / ZE
+        phi = -xi + tau
+        all_phi.append(phi)
+        all_dev.append(dev)
+    
+    all_phi = np.concatenate(all_phi)
+    all_dev = np.concatenate(all_dev)
+    sort_idx = np.argsort(all_phi)
+    return all_phi[sort_idx], all_dev[sort_idx]
+
+
+def merge_helix_curves(flank_lines, tooth_positions, ZE, m, beta):
+    all_phi = []
+    all_dev = []
+    D0 = m * ZE / np.cos(beta) if np.cos(beta) != 0 else m * ZE * 1.1
+    
+    for i, (flank, pos) in enumerate(zip(flank_lines, tooth_positions)):
+        z = flank['z']
+        dev = flank['dev']
+        delta_phi = 2 * z * np.tan(beta) / D0
+        tau = 2 * np.pi * pos / ZE
+        phi = -delta_phi + tau
+        all_phi.append(phi)
+        all_dev.append(dev)
+    
+    all_phi = np.concatenate(all_phi)
+    all_dev = np.concatenate(all_dev)
+    sort_idx = np.argsort(all_phi)
+    return all_phi[sort_idx], all_dev[sort_idx]
+
+
+def remove_trend_per_tooth(phi, dev, poly_order=3):
+    dphi = np.diff(phi)
+    breaks = np.where(dphi < -np.pi)[0] + 1
+    
+    segments_phi = []
+    segments_dev = []
+    start = 0
+    for break_idx in breaks:
+        segments_phi.append(phi[start:break_idx])
+        segments_dev.append(dev[start:break_idx])
+        start = break_idx
+    segments_phi.append(phi[start:])
+    segments_dev.append(dev[start:])
+    
+    processed_phi = []
+    processed_dev = []
+    
+    for seg_phi, seg_dev in zip(segments_phi, segments_dev):
+        if len(seg_phi) > poly_order + 1:
+            coeffs = np.polyfit(seg_phi, seg_dev, poly_order)
+            trend = np.polyval(coeffs, seg_phi)
+            residual = seg_dev - trend
+            processed_phi.append(seg_phi)
+            processed_dev.append(residual)
+        else:
+            processed_phi.append(seg_phi)
+            processed_dev.append(seg_dev - np.mean(seg_dev))
+    
+    phi_out = np.concatenate(processed_phi)
+    dev_out = np.concatenate(processed_dev)
+    sort_idx = np.argsort(phi_out)
+    
+    return phi_out[sort_idx], dev_out[sort_idx]
+
+
+def interpolate_to_uniform(phi, dev, ZE):
+    """
+    在0-360度范围内均匀插值
+    
+    点数 = max(360, 2×5×ZE+10)
+    """
+    # 归一化到0-2π范围
+    phi_norm = phi - phi.min()
+    phi_norm = phi_norm / phi_norm.max() * 2 * np.pi
+    
+    # 计算插值点数
+    n_points = max(360, 2 * 5 * ZE + 10)
+    
+    # 均匀插值
+    phi_uniform = np.linspace(0, 2 * np.pi, n_points)
+    dev_uniform = np.interp(phi_uniform, phi_norm, dev)
+    
+    return phi_uniform, dev_uniform
+
+
+def fit_sine_wave_lstsq(theta, signal, order):
+    """
+    使用最小二乘法拟合正弦波
+    
+    y = A×sin(order×θ) + B×cos(order×θ)
+    振幅 = √(A² + B²)
+    """
+    # 构建矩阵
+    A_matrix = np.column_stack([
+        np.sin(order * theta),
+        np.cos(order * theta)
+    ])
+    
+    # 求解最小二乘
+    result, residuals, rank, s = lstsq(A_matrix, signal)
+    
+    A_coef, B_coef = result
+    
+    # 计算振幅
+    amplitude = np.sqrt(A_coef**2 + B_coef**2)
+    
+    # 计算相位
+    phase = np.arctan2(B_coef, A_coef)
+    
+    return amplitude, phase, A_coef, B_coef
+
+
+def iterative_sine_decomposition(theta, signal, ZE, max_components=10):
+    """
+    迭代正弦波分解
+    
+    对于 i = 1 到 10（提取10个最大分量）:
+        1. 在当前信号中寻找振幅最大的阶次（1到5×ZE）
+        2. 使用最小二乘法拟合该阶次的正弦波
+        3. 从信号中减去已提取的分量
+        4. 记录该分量的阶次、振幅、相位
+    """
+    residual = signal.copy()
+    components = []
+    
+    max_order = 5 * ZE
+    
+    for iteration in range(max_components):
+        best_amplitude = 0
+        best_order = 0
+        best_A = 0
+        best_B = 0
+        
+        # 搜索振幅最大的阶次
+        for order in range(1, max_order + 1):
+            amp, phase, A, B = fit_sine_wave_lstsq(theta, residual, order)
+            
+            if amp > best_amplitude:
+                best_amplitude = amp
+                best_order = order
+                best_A = A
+                best_B = B
+        
+        if best_amplitude < 1e-6:
+            break
+        
+        # 从残差中减去该分量
+        sine_wave = best_A * np.sin(best_order * theta) + best_B * np.cos(best_order * theta)
+        residual = residual - sine_wave
+        
+        components.append({
+            'order': best_order,
+            'amplitude': best_amplitude,
+            'A': best_A,
+            'B': best_B
+        })
+    
+    return components
+
+
+def analyze_with_document_method(mka_file, sample_name, klingelnberg_ref, poly_order=3):
+    print(f"\n{'='*80}")
+    print(f"基于文档的精确波纹度分析: {sample_name}")
+    print(f"预处理多项式阶数: {poly_order}")
+    print(f"{'='*80}\n")
+    
+    try:
+        mka_data = parse_mka_file(mka_file)
+    except Exception as e:
+        print(f"解析失败: {e}")
+        return None
+    
+    gear_data = mka_data.get('gear_data', {})
+    ZE = int(gear_data.get('teeth', gear_data.get('ZE', 0)))
+    m = float(gear_data.get('module', gear_data.get('m', 0)))
+    alpha = float(gear_data.get('alpha', 20.0))
+    beta = np.radians(float(gear_data.get('beta', 0.0)))
+    
+    print(f"\n齿轮参数:")
+    print(f"  齿数 ZE = {ZE}")
+    print(f"  模数 m = {m}")
+    print(f"  压力角 α = {alpha}°")
+    print(f"  螺旋角 β = {np.degrees(beta):.1f}°")
+    
+    if ZE == 0:
+        print("错误: 无法获取齿数")
+        return None
+    
+    total_error = []
+    profile_data = mka_data.get('profile_data', {})
+    flank_data = mka_data.get('flank_data', {})
+    
+    for surface_name, surface_key, data_type in [
+        ('Right Profile', 'right_profile', 'profile'),
+        ('Left Profile', 'left_profile', 'profile'),
+        ('Right Helix', 'right_helix', 'helix'),
+        ('Left Helix', 'left_helix', 'helix')
+    ]:
+        print(f"\n{surface_name} ({surface_key}):")
+        
+        if data_type == 'profile':
+            side = 'right' if 'right' in surface_key else 'left'
+            raw_profiles = profile_data.get(side, {})
+            if not raw_profiles:
+                print(f"  无数据")
+                continue
+            profiles = prepare_profile_data(raw_profiles, alpha)
+            tooth_positions = list(range(len(profiles)))
+            phi, dev = merge_profile_curves(profiles, tooth_positions, ZE)
+        else:
+            side = 'right' if 'right' in surface_key else 'left'
+            raw_flanks = flank_data.get(side, {})
+            if not raw_flanks:
+                print(f"  无数据")
+                continue
+            flank_lines = prepare_helix_data(raw_flanks)
+            tooth_positions = list(range(len(flank_lines)))
+            phi, dev = merge_helix_curves(flank_lines, tooth_positions, ZE, m, beta)
+        
+        # 预处理
+        phi_proc, dev_proc = remove_trend_per_tooth(phi, dev, poly_order)
+        
+        # 均匀插值
+        theta, signal = interpolate_to_uniform(phi_proc, dev_proc, ZE)
+        
+        # 迭代分解
+        components = iterative_sine_decomposition(theta, signal, ZE)
+        
+        # 构建频谱
+        spectrum = {comp['order']: comp['amplitude'] for comp in components}
+        
+        # 获取参考值
+        ref = klingelnberg_ref.get(surface_key, {})
+        
+        print(f"\n  {'阶次':<8} {'我们的结果':<12} {'Klingelnberg':<12} {'误差':<10} {'状态'}")
+        print(f"  {'-'*60}")
+        
+        errors = []
+        for order in sorted(ref.keys()):
+            our_val = spectrum.get(order, 0)
+            ref_val = ref[order]
+            
+            if ref_val > 0:
+                error_pct = abs(our_val - ref_val) / ref_val * 100
+                errors.append(error_pct)
+                
+                if error_pct < 15:
+                    status = "✅"
+                elif error_pct < 30:
+                    status = "✓"
+                elif error_pct < 50:
+                    status = "⚠"
+                else:
+                    status = "✗"
+                
+                print(f"  {order:<8} {our_val:<12.4f} {ref_val:<12.2f} {error_pct:<10.1f} % {status}")
+        
+        # 显示提取的主要分量
+        print(f"\n  提取的主要分量 (前10个):")
+        for comp in components[:10]:
+            print(f"    阶次 {comp['order']}: 振幅={comp['amplitude']:.4f}")
+        
+        if errors:
+            avg_error = np.mean(errors)
+            total_error.append(avg_error)
+            print(f"\n  平均误差: {avg_error:.1f}%")
+    
+    if total_error:
+        overall_error = np.mean(total_error)
+        print(f"\n{'='*80}")
+        print(f"样本平均误差: {overall_error:.1f}%")
+        print(f"{'='*80}")
+        return overall_error
+    
+    return None
+
+
+def main():
+    print("="*80)
+    print("基于文档的精确波纹度分析")
+    print("="*80)
+    print("\n关键算法：")
+    print("1. 使用 y = A×sin(order×θ) + B×cos(order×θ) 形式")
+    print("2. 振幅 = √(A² + B²)")
+    print("3. 迭代提取10个最大分量")
+    print("4. 搜索阶次范围：1到5×ZE")
+    
+    # 测试不同预处理阶数
+    for poly_order in [2, 3]:
+        print(f"\n\n{'#'*80}")
+        print(f"# 预处理多项式阶数: {poly_order}")
+        print(f"{'#'*80}")
+        
+        # 分析样本1
+        error1 = analyze_with_document_method(
+            "263751-018-WAV.mka",
+            "样本1: 263751-018-WAV (87齿)",
+            KLINGELNBERG_SAMPLE1,
+            poly_order=poly_order
+        )
+        
+        # 分析样本2
+        error2 = analyze_with_document_method(
+            "004-xiaoxiao1.mka",
+            "样本2: 004-xiaoxiao1 (26齿)",
+            KLINGELNBERG_SAMPLE2,
+            poly_order=poly_order
+        )
+        
+        print(f"\n{'='*80}")
+        print(f"预处理阶数 {poly_order} 对比总结")
+        print(f"{'='*80}")
+        print(f"样本1 (87齿): 误差 = {error1:.1f}%" if error1 else "样本1: 分析失败")
+        print(f"样本2 (26齿): 误差 = {error2:.1f}%" if error2 else "样本2: 分析失败")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,11 @@
+# 可选依赖项
+# USB软件狗支持（如果需要使用HID设备检测）
+hidapi>=0.14.0; platform_system == "Windows"
+hidapi>=0.14.0; platform_system == "Linux"
+hidapi>=0.14.0; platform_system == "Darwin"
+
+# 注意：
+# 1. 如果使用特定品牌的加密锁（如SafeNet Sentinel），需要安装对应的SDK和驱动
+# 2. Windows系统通常已内置必要的系统库，无需额外安装
+# 3. 如果只使用系统命令检测，可以不安装hidapi
+

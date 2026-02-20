@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "format": "PDF 1.2",
+    "title": "",
+    "author": "",
+    "subject": "",
+    "keywords": "",
+    "creator": "",
+    "producer": "libtiff / tiff2pdf - 20060323 / d",
+    "creationDate": "D:20251128234448",
+    "modDate": "D:20251128234448",
+    "trapped": "",
+    "encryption": null
+  },
+  "page_count": 2,
+  "pages": [
+    {
+      "page_num": 1,
+      "width": 595.2000122070312,
+      "height": 841.6799926757812,
+      "text_length": 0,
+      "block_count": 0,
+      "word_count": 0,
+      "image_count": 1,
+      "text_preview": "",
+      "block_text": []
+    },
+    {
+      "page_num": 2,
+      "width": 595.2000122070312,
+      "height": 841.6799926757812,
+      "text_length": 0,
+      "block_count": 0,
+      "word_count": 0,
+      "image_count": 1,
+      "text_preview": "",
+      "block_text": []
+    }
+  ]
+}
