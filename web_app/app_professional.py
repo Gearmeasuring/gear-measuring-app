@@ -221,6 +221,18 @@ class RippleWavinessAnalyzer:
         )
 
 
+# ============== 添加项目根目录到路径 ==============
+# 获取项目根目录（web_app 的父目录）
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+
+# 添加到 sys.path
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+
 # ============== Streamlit 应用 ==============
 st.set_page_config(
     page_title="齿轮测量报告系统 - 专业版",
@@ -286,9 +298,85 @@ if uploaded_file is not None:
         col1, col2, col3 = st.columns([1, 2, 1])
         
         with col2:
-            st.info("PDF 报告功能在云端部署版本中暂时不可用，请在本地使用完整功能。")
-            st.markdown("### 数据预览")
+            if st.button("📄 生成专业 PDF 报告", type="primary", use_container_width=True):
+                with st.spinner("正在生成 PDF 报告，请稍候..."):
+                    try:
+                        from gear_analysis_refactored.models.gear_data import create_gear_data_from_dict
+                        from gear_analysis_refactored.utils.file_parser import parse_mka_file
+                        from gear_analysis_refactored.reports.klingelnberg_single_page import KlingelnbergSinglePageReport
+                        from gear_analysis_refactored.analysis.deviation_analyzer import DeviationAnalyzer
+                        
+                        data_dict = parse_mka_file(temp_path)
+                        measurement_data = create_gear_data_from_dict(data_dict)
+                        
+                        # 计算偏差结果
+                        gear_data = {
+                            'module': measurement_data.basic_info.module,
+                            'teeth': measurement_data.basic_info.teeth,
+                            'width': measurement_data.basic_info.width,
+                            'accuracy_grade': measurement_data.basic_info.accuracy_grade
+                        }
+                        dev_analyzer = DeviationAnalyzer(gear_data)
+                        
+                        # 计算 profile 和 flank 偏差
+                        deviation_results = {'profile': {}, 'flank': {}}
+                        
+                        for side in ['left', 'right']:
+                            profile_data = getattr(measurement_data.profile_data, side, {})
+                            flank_data = getattr(measurement_data.flank_data, side, {})
+                            
+                            for tooth_num, tooth_data in profile_data.items():
+                                key = f"{'L' if side == 'left' else 'R'}{tooth_num}"
+                                F_alpha, fH_alpha, ff_alpha = dev_analyzer.calculate_profile_deviations(tooth_data, side)
+                                deviation_results['profile'][key] = {
+                                    'F_alpha': F_alpha,
+                                    'fH_alpha': fH_alpha,
+                                    'ff_alpha': ff_alpha
+                                }
+                            
+                            for tooth_num, tooth_data in flank_data.items():
+                                key = f"{'L' if side == 'left' else 'R'}{tooth_num}"
+                                F_beta, fH_beta, ff_beta = dev_analyzer.calculate_flank_deviations(tooth_data, side)
+                                deviation_results['flank'][key] = {
+                                    'F_beta': F_beta,
+                                    'fH_beta': fH_beta,
+                                    'ff_beta': ff_beta
+                                }
+                        
+                        output_dir = os.path.join(os.path.dirname(__file__), "reports")
+                        os.makedirs(output_dir, exist_ok=True)
+                        
+                        base_name = os.path.splitext(uploaded_file.name)[0]
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        output_path = os.path.join(output_dir, f"{base_name}_report_{timestamp}.pdf")
+                        
+                        reporter = KlingelnbergSinglePageReport()
+                        success = reporter.generate_report(measurement_data, deviation_results, output_path)
+                        
+                        if success and os.path.exists(output_path):
+                            st.success(f"✅ 报告生成成功！")
+                            
+                            with open(output_path, "rb") as f:
+                                pdf_bytes = f.read()
+                            
+                            st.download_button(
+                                label="📥 下载 PDF 报告",
+                                data=pdf_bytes,
+                                file_name=f"{base_name}_report.pdf",
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
+                            
+                            st.info(f"报告已保存至: {output_path}")
+                        else:
+                            st.error("❌ 报告生成失败，请检查日志")
+                            
+                    except Exception as e:
+                        st.error(f"❌ 生成报告时出错: {str(e)}")
+                        import traceback
+                        st.code(traceback.format_exc())
         
+        st.markdown("---")
         st.markdown("#### 基本信息")
         col1, col2 = st.columns(2)
         
