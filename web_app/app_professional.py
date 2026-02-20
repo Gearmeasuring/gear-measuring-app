@@ -19,17 +19,12 @@ import tempfile
 rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS']
 rcParams['axes.unicode_minus'] = False
 
-# 添加项目根目录到路径
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, project_root)
+# 确保可以导入 ripple_waviness_analyzer（在 web_app 目录下）
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
-# Streamlit Cloud 和本地环境兼容导入
-try:
-    from ripple_waviness_analyzer import RippleWavinessAnalyzer
-except ImportError:
-    # 如果在 web_app 目录下运行
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from ripple_waviness_analyzer import RippleWavinessAnalyzer
+from ripple_waviness_analyzer import RippleWavinessAnalyzer
 
 st.set_page_config(
     page_title="齿轮测量报告系统 - 专业版",
