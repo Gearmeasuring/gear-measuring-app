@@ -383,7 +383,93 @@ if uploaded_file is not None:
                 st.pyplot(fig)
 
         st.markdown("---")
-        st.markdown("### 周节偏差数据表")
+        st.markdown("### 周节偏差统计表")
+
+        # 计算统计数据
+        def calc_pitch_stats(pitch_data):
+            """计算周节统计数据"""
+            if not pitch_data or 'teeth' not in pitch_data:
+                return {}
+
+            teeth = pitch_data['teeth']
+            fp_vals = pitch_data['fp_values']
+            Fp_vals = pitch_data['Fp_values']
+
+            if not fp_vals or not Fp_vals:
+                return {}
+
+            # Worst single pitch deviation fp max
+            fp_max = max([abs(x) for x in fp_vals]) if fp_vals else 0
+
+            # Worst spacing deviation fu max (相邻齿距偏差的最大差值)
+            fu_max = max([abs(fp_vals[i] - fp_vals[i-1]) for i in range(1, len(fp_vals))]) if len(fp_vals) > 1 else 0
+
+            # Range of Pitch Error Rp
+            Rp = max(fp_vals) - min(fp_vals) if fp_vals else 0
+
+            # Total cum. pitch dev. Fp
+            Fp_total = max(Fp_vals) - min(Fp_vals) if Fp_vals else 0
+
+            # Cum. pitch deviation Fp10 (k=10的累积偏差)
+            k = 10
+            Fp10_max = 0
+            if len(fp_vals) > k:
+                extended_fp = fp_vals + fp_vals[:k]
+                window_sums = []
+                for i in range(len(fp_vals)):
+                    window_sum = sum(extended_fp[i:i+k])
+                    window_sums.append(window_sum)
+                Fp10_max = max([abs(x) for x in window_sums]) if window_sums else 0
+
+            return {
+                'fp_max': fp_max,
+                'fu_max': fu_max,
+                'Rp': Rp,
+                'Fp': Fp_total,
+                'Fp10': Fp10_max
+            }
+
+        left_stats = calc_pitch_stats(pitch_data_left)
+        right_stats = calc_pitch_stats(pitch_data_right)
+
+        # 创建统计表格
+        if left_stats or right_stats:
+            st.subheader("Pitch measuring circle:")
+
+            # 构建表格数据
+            table_data = {
+                '': [
+                    'Worst single pitch deviation fp max',
+                    'Worst spacing deviation fu max',
+                    'Range of Pitch Error Rp',
+                    'Total cum. pitch dev. Fp',
+                    'Cum. pitch deviation Fp10'
+                ],
+                'left flank Act.value': [
+                    f"{left_stats.get('fp_max', 0):.1f}" if left_stats else '',
+                    f"{left_stats.get('fu_max', 0):.1f}" if left_stats else '',
+                    f"{left_stats.get('Rp', 0):.1f}" if left_stats else '',
+                    f"{left_stats.get('Fp', 0):.1f}" if left_stats else '',
+                    f"{left_stats.get('Fp10', 0):.1f}" if left_stats else ''
+                ],
+                'left flank Qual.': ['', '', '', '', ''],
+                'left flank Lim.value Qual.': ['12 5', '', '', '36 5', ''],
+                'right flank Act.value': [
+                    f"{right_stats.get('fp_max', 0):.1f}" if right_stats else '',
+                    f"{right_stats.get('fu_max', 0):.1f}" if right_stats else '',
+                    f"{right_stats.get('Rp', 0):.1f}" if right_stats else '',
+                    f"{right_stats.get('Fp', 0):.1f}" if right_stats else '',
+                    f"{right_stats.get('Fp10', 0):.1f}" if right_stats else ''
+                ],
+                'right flank Qual.': ['', '', '', '', ''],
+                'right flank Lim.value Qual.': ['12 5', '', '', '36 5', '']
+            }
+
+            df_stats = pd.DataFrame(table_data)
+            st.dataframe(df_stats, use_container_width=True, hide_index=True)
+
+        st.markdown("---")
+        st.markdown("### 周节偏差数据明细表")
 
         # 左齿面数据表
         if pitch_left and pitch_left.teeth:
