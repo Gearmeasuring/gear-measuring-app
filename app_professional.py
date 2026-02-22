@@ -19,7 +19,14 @@ import tempfile
 rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS']
 rcParams['axes.unicode_minus'] = False
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+web_app_dir = os.path.dirname(current_dir)
+project_dir = os.path.dirname(web_app_dir)
+
+if project_dir not in sys.path:
+    sys.path.insert(0, project_dir)
+if web_app_dir not in sys.path:
+    sys.path.insert(0, web_app_dir)
 
 from ripple_waviness_analyzer import RippleWavinessAnalyzer
 
@@ -98,16 +105,14 @@ if uploaded_file is not None:
                         data_dict = parse_mka_file(temp_path)
                         measurement_data = create_gear_data_from_dict(data_dict)
                         
-                        # 计算偏差结果
                         gear_data = {
                             'module': measurement_data.basic_info.module,
                             'teeth': measurement_data.basic_info.teeth,
                             'width': measurement_data.basic_info.width,
                             'accuracy_grade': measurement_data.basic_info.accuracy_grade
                         }
-                        analyzer = DeviationAnalyzer(gear_data)
+                        dev_analyzer = DeviationAnalyzer(gear_data)
                         
-                        # 计算 profile 和 flank 偏差
                         deviation_results = {'profile': {}, 'flank': {}}
                         
                         for side in ['left', 'right']:
@@ -116,7 +121,7 @@ if uploaded_file is not None:
                             
                             for tooth_num, tooth_data in profile_data.items():
                                 key = f"{'L' if side == 'left' else 'R'}{tooth_num}"
-                                F_alpha, fH_alpha, ff_alpha = analyzer.calculate_profile_deviations(tooth_data, side)
+                                F_alpha, fH_alpha, ff_alpha = dev_analyzer.calculate_profile_deviations(tooth_data, side)
                                 deviation_results['profile'][key] = {
                                     'F_alpha': F_alpha,
                                     'fH_alpha': fH_alpha,
@@ -125,7 +130,7 @@ if uploaded_file is not None:
                             
                             for tooth_num, tooth_data in flank_data.items():
                                 key = f"{'L' if side == 'left' else 'R'}{tooth_num}"
-                                F_beta, fH_beta, ff_beta = analyzer.calculate_flank_deviations(tooth_data, side)
+                                F_beta, fH_beta, ff_beta = dev_analyzer.calculate_flank_deviations(tooth_data, side)
                                 deviation_results['flank'][key] = {
                                     'F_beta': F_beta,
                                     'fH_beta': fH_beta,
@@ -474,8 +479,8 @@ if uploaded_file is not None:
                 })
                 summary_data.append({
                     '参数': 'Worst spacing deviation fu max',
-                    '左齿面 Act.value': f"{abs(pitch_left.fp_max - pitch_left.fp_min):.2f}",
-                    '右齿面 Act.value': f"{abs(pitch_right.fp_max - pitch_right.fp_min):.2f}" if pitch_right else '-'
+                    '左齿面 Act.value': f"{pitch_left.fp_max:.2f}",
+                    '右齿面 Act.value': f"{pitch_right.fp_max:.2f}" if pitch_right else '-'
                 })
                 summary_data.append({
                     '参数': 'Range of Pitch Error Rp',
@@ -574,74 +579,229 @@ if uploaded_file is not None:
     elif page == '📉 合并曲线':
         st.markdown("## 合并曲线分析 (0-360°)")
         
+        ze = gear_params.teeth_count if gear_params else 87
+        
+        name_mapping = {
+            'profile_left': '左齿形',
+            'profile_right': '右齿形', 
+            'helix_left': '左齿向',
+            'helix_right': '右齿向'
+        }
+        
         for name, result in results.items():
-            if result is None:
+            if result is None or len(result.angles) == 0:
                 continue
             
-            with st.expander(f"📈 {name}", expanded=True):
+            display_name = name_mapping.get(name, name)
+            
+            with st.expander(f"📈 {display_name}", expanded=True):
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("高阶总振幅 W", f"{result.high_order_amplitude:.3f} μm")
+                    st.metric("高阶总振幅 W", f"{result.high_order_amplitude:.4f} μm")
                 with col2:
-                    st.metric("RMS", f"{result.high_order_rms:.3f} μm")
+                    st.metric("高阶 RMS", f"{result.high_order_rms:.4f} μm")
                 with col3:
                     st.metric("高阶波数", len(result.high_order_waves))
                 with col4:
-                    max_order = result.spectrum_components[0].order
-                    st.metric("主导阶次", max_order)
+                    if result.spectrum_components and len(result.spectrum_components) > 0:
+                        max_order = result.spectrum_components[0].order
+                        st.metric("主导阶次", int(max_order))
+                    else:
+                        st.metric("主导阶次", "-")
                 
                 fig, ax = plt.subplots(figsize=(14, 5))
                 ax.plot(result.angles, result.values, 'b-', linewidth=0.5, alpha=0.7, label='原始曲线')
                 ax.plot(result.angles, result.reconstructed_signal, 'r-', linewidth=1.5, label='高阶重构')
                 ax.set_xlabel('旋转角度 (deg)')
                 ax.set_ylabel('偏差 (μm)')
-                ax.set_title(f'{name} - 合并曲线')
+                ax.set_title(f'{display_name} - 合并曲线 (ZE={ze})')
                 ax.legend()
                 ax.grid(True, alpha=0.3)
                 ax.set_xlim(0, 360)
                 st.pyplot(fig)
+                
+                if result.high_order_waves:
+                    st.markdown("**高阶波数列表:**")
+                    waves_str = ", ".join([f"{int(w['order'])}({w['amplitude']:.4f})" for w in result.high_order_waves[:10]])
+                    if len(result.high_order_waves) > 10:
+                        waves_str += " ..."
+                    st.write(waves_str)
+        
+        st.markdown("---")
+        st.markdown("### 高阶波纹度重构信号对比")
+        
+        fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+        
+        for idx, (name, result) in enumerate([
+            ('左齿形', results.get('profile_left')),
+            ('右齿形', results.get('profile_right')),
+            ('左齿向', results.get('helix_left')),
+            ('右齿向', results.get('helix_right'))
+        ]):
+            ax = axes[idx // 2, idx % 2]
+            if result and len(result.angles) > 0:
+                ax.plot(result.angles, result.values, 'b-', linewidth=0.3, alpha=0.5, label='原始曲线')
+                ax.plot(result.angles, result.reconstructed_signal, 'r-', linewidth=1.5, label='高阶重构')
+                ax.set_xlabel('旋转角度 (deg)')
+                ax.set_ylabel('偏差 (μm)')
+                ax.set_title(f'{name} - 高阶波纹度重构')
+                ax.legend(fontsize=8)
+                ax.grid(True, alpha=0.3)
+                ax.set_xlim(0, 360)
+            else:
+                ax.text(0.5, 0.5, '无数据', ha='center', va='center', transform=ax.transAxes)
+        
+        plt.tight_layout()
+        st.pyplot(fig)
+        
+        st.markdown("---")
+        st.markdown("### 前5个齿放大显示")
+        
+        pitch_angle = 360.0 / ze if ze > 0 else 4.14
+        end_angle = 5 * pitch_angle
+        
+        for name, result in [
+            ('左齿形', results.get('profile_left')),
+            ('右齿形', results.get('profile_right')),
+            ('左齿向', results.get('helix_left')),
+            ('右齿向', results.get('helix_right'))
+        ]:
+            if result is None or len(result.angles) == 0:
+                continue
+            
+            st.markdown(f"#### {name} - 前5个齿 (0° - {end_angle:.1f}°)")
+            
+            mask = result.angles <= end_angle
+            if not np.any(mask):
+                mask = result.angles < (end_angle + 10)
+            
+            angles_zoom = result.angles[mask]
+            values_zoom = result.values[mask]
+            recon_zoom = result.reconstructed_signal[mask]
+            
+            if len(angles_zoom) > 0:
+                fig, ax = plt.subplots(figsize=(14, 5))
+                
+                # 使用散点图显示数据点，更清楚地看到波纹形状
+                ax.scatter(angles_zoom, values_zoom, c='blue', s=2, alpha=0.6, label='原始数据点')
+                ax.plot(angles_zoom, values_zoom, 'b-', linewidth=0.5, alpha=0.4)
+                ax.plot(angles_zoom, recon_zoom, 'r-', linewidth=2, label='高阶重构')
+                
+                for i in range(1, 6):
+                    ax.axvline(x=i*pitch_angle, color='green', linestyle='--', alpha=0.5, linewidth=1)
+                    ax.text(i*pitch_angle - pitch_angle/2, max(values_zoom)*0.9, f'齿{i}', 
+                           ha='center', fontsize=10, color='green')
+                
+                ax.set_xlabel('旋转角度 (deg)')
+                ax.set_ylabel('偏差 (μm)')
+                ax.set_title(f'{name} - 前5个齿放大 (每齿 {pitch_angle:.2f}°)')
+                ax.legend()
+                ax.grid(True, alpha=0.3)
+                ax.set_xlim(0, end_angle)
+                st.pyplot(fig)
+                
+                st.markdown(f"**数据点数:** {len(angles_zoom)}, **角度范围:** 0° - {max(angles_zoom):.1f}°")
     
     elif page == '📊 频谱分析':
         st.markdown("## 频谱分析")
         
+        ze = gear_params.teeth_count if gear_params else 87
+        
+        name_mapping = {
+            'profile_left': '左齿形',
+            'profile_right': '右齿形', 
+            'helix_left': '左齿向',
+            'helix_right': '右齿向'
+        }
+        
         for name, result in results.items():
-            if result is None:
+            if result is None or len(result.angles) == 0:
                 continue
             
-            with st.expander(f"📈 {name}", expanded=True):
+            display_name = name_mapping.get(name, name)
+            
+            with st.expander(f"📈 {display_name}", expanded=True):
+                st.markdown("#### 前10个较大阶次")
+                
                 spectrum_data = []
                 for i, comp in enumerate(result.spectrum_components[:10]):
+                    order_type = '高阶 ★' if comp.order >= ze else '低阶'
                     spectrum_data.append({
                         '排名': i + 1,
-                        '阶次': comp.order,
+                        '阶次': int(comp.order),
                         '振幅 (μm)': f"{comp.amplitude:.4f}",
                         '相位 (°)': f"{np.degrees(comp.phase):.1f}",
-                        '类型': '高阶' if comp.order >= analyzer.gear_params.teeth_count else '低阶'
+                        '类型': order_type
                     })
                 st.table(spectrum_data)
+                
+                st.markdown("#### 频谱图")
                 
                 fig, ax = plt.subplots(figsize=(12, 5))
                 sorted_components = sorted(result.spectrum_components[:20], key=lambda c: c.order)
                 orders = [c.order for c in sorted_components]
                 amplitudes = [c.amplitude for c in sorted_components]
-                colors_bar = ['red' if o >= analyzer.gear_params.teeth_count else 'blue' for o in orders]
-                ax.bar(orders, amplitudes, color=colors_bar, alpha=0.7, width=3)
                 
-                ze = analyzer.gear_params.teeth_count
-                max_order = max(orders) if orders else ze * 4
-                for i in range(1, int(max_order / ze) + 2):
-                    ze_multiple = ze * i
-                    if ze_multiple <= max_order + ze:
-                        ax.axvline(x=ze_multiple, color='green', linestyle='--', alpha=0.7, linewidth=1)
-                        ax.text(ze_multiple, max(amplitudes) * 1.05, f'{i}ZE', 
-                               ha='center', va='bottom', fontsize=8, color='green')
+                if orders and amplitudes:
+                    colors_bar = ['red' if o >= ze else 'steelblue' for o in orders]
+                    ax.bar(orders, amplitudes, color=colors_bar, alpha=0.7, width=3)
+                    
+                    max_order = max(orders) if orders else ze * 4
+                    max_amplitude = max(amplitudes) if amplitudes else 1.0
+                    
+                    ax.axvline(x=ze, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
+                    ax.text(ze, max_amplitude * 1.05, f'ZE={ze}', ha='center', fontsize=9, color='green')
+                    
+                    for i in range(2, int(max_order / ze) + 2):
+                        ze_multiple = ze * i
+                        if ze_multiple <= max_order + ze:
+                            ax.axvline(x=ze_multiple, color='green', linestyle=':', alpha=0.5, linewidth=1)
+                            ax.text(ze_multiple, max_amplitude * 1.05, f'{i}ZE', 
+                                   ha='center', fontsize=8, color='green', alpha=0.7)
+                    
+                    ax.set_xlim(0, max(orders) + 20)
+                else:
+                    ax.text(0.5, 0.5, '无频谱数据', ha='center', va='center', transform=ax.transAxes)
+                    ax.set_xlim(0, ze * 2)
                 
-                ax.set_xlabel('Order (阶次)')
-                ax.set_ylabel('Amplitude (μm)')
-                ax.set_title(f'{name} - Spectrum (ZE={ze})')
+                ax.set_xlabel('阶次 (Order)')
+                ax.set_ylabel('振幅 (μm)')
+                ax.set_title(f'{display_name} - 频谱图 (ZE={ze})')
+                ax.legend()
                 ax.grid(True, alpha=0.3)
-                ax.set_xlim(0, max(orders) + 10 if orders else ze * 2)
                 st.pyplot(fig)
+        
+        st.markdown("---")
+        st.markdown("### 频谱对比分析")
+        
+        fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+        
+        for idx, (name, result) in enumerate([
+            ('左齿形', results.get('profile_left')),
+            ('右齿形', results.get('profile_right')),
+            ('左齿向', results.get('helix_left')),
+            ('右齿向', results.get('helix_right'))
+        ]):
+            ax = axes[idx // 2, idx % 2]
+            if result and result.spectrum_components:
+                sorted_comps = sorted(result.spectrum_components[:15], key=lambda c: c.order)
+                orders = [c.order for c in sorted_comps]
+                amplitudes = [c.amplitude for c in sorted_comps]
+                
+                if orders:
+                    colors = ['red' if o >= ze else 'steelblue' for o in orders]
+                    ax.bar(orders, amplitudes, color=colors, alpha=0.7, width=4)
+                    ax.axvline(x=ze, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
+                    ax.set_xlabel('阶次')
+                    ax.set_ylabel('振幅 (μm)')
+                    ax.set_title(f'{name} - 频谱')
+                    ax.legend(fontsize=8)
+                    ax.grid(True, alpha=0.3)
+            else:
+                ax.text(0.5, 0.5, '无数据', ha='center', va='center', transform=ax.transAxes)
+        
+        plt.tight_layout()
+        st.pyplot(fig)
     
     if os.path.exists(temp_path):
         os.remove(temp_path)
@@ -659,8 +819,8 @@ else:
     | 📄 专业报告 | 生成 PDF 报告（包含齿形/齿向/周节） |
     | 📊 周节详细报表 | 周节偏差 fp/Fp/Fr 分析和详细数据表 |
     | 📈 单齿分析 | 单个齿的齿形/齿向偏差曲线 |
-    | 📉 合并曲线 | 0-360°合并曲线和高阶重构 |
-    | 📊 频谱分析 | 各阶次振幅和相位分析 |
+    | 📉 合并曲线 | 0-360°合并曲线、极角计算、高阶波纹度评价 |
+    | 📊 频谱分析 | 最小二乘法迭代分解、阶次振幅相位分析 |
     """)
 
 st.markdown("---")
