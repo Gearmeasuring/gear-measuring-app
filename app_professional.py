@@ -222,15 +222,15 @@ if uploaded_file is not None:
                         ax.plot(trend, eval_x, 'r--', linewidth=1.0, label='评定线')
                     
                     ax.grid(True, linestyle='-', alpha=1.0, color='black', linewidth=0.5)
-                    ax.set_xlabel('偏差 (μm)', fontsize=8)
-                    ax.set_ylabel('展长 (mm)', fontsize=8)
-                    ax.set_title(f'齿号 {tooth_id}', fontsize=10, fontweight='bold')
+                    ax.set_xlabel('Deviation (μm)', fontsize=8)
+                    ax.set_ylabel('Evaluation Length (mm)', fontsize=8)
+                    ax.set_title(f'Tooth {tooth_id}', fontsize=10, fontweight='bold')
                     ax.tick_params(axis='both', which='major', labelsize=7)
                     
                     plt.tight_layout()
                     st.pyplot(fig)
                 else:
-                    st.warning(f"齿号 {tooth_id} 无数据")
+                    st.warning(f"Tooth {tooth_id} has no data")
             
     elif page == '📊 周节详细报表':
         st.markdown("## Gear Spacing Report - 周节详细报表")
@@ -287,7 +287,7 @@ if uploaded_file is not None:
                 st.metric("右齿面 Fr", f"{pitch_right.Fr:.2f} μm")
         
         st.markdown("---")
-        st.markdown("### 周节偏差图表")
+        st.markdown("### Pitch Deviation Charts")
 
         # 获取pitch数据
         pitch_data_left = analyzer.reader.pitch_data.get('left', {})
@@ -295,7 +295,7 @@ if uploaded_file is not None:
 
         # 左齿面图表
         if pitch_data_left and 'teeth' in pitch_data_left:
-            st.subheader("左齿面周节偏差")
+            st.subheader("Left Flank Pitch Deviation")
             teeth_left = pitch_data_left['teeth']
             fp_values_left = pitch_data_left['fp_values']
             Fp_values_left = pitch_data_left['Fp_values']
@@ -314,7 +314,7 @@ if uploaded_file is not None:
                 fig, ax = plt.subplots(figsize=(8, 4))
                 ax.bar(teeth_left, fp_values_left, color='white', edgecolor='black', width=1.0, linewidth=0.5)
                 ax.set_title('Tooth to tooth spacing fp left flank', fontsize=10, fontweight='bold')
-                ax.set_xlabel('齿号')
+                ax.set_xlabel('Tooth Number')
                 ax.set_ylabel('fp (μm)')
                 ax.grid(True, linestyle=':', alpha=0.5)
                 ax.set_xlim(0, len(teeth_left)+1)
@@ -325,7 +325,7 @@ if uploaded_file is not None:
                 fig, ax = plt.subplots(figsize=(8, 4))
                 ax.plot(teeth_left, Fp_values_adjusted, 'k-', linewidth=1.0)
                 ax.set_title('Index Fp left flank', fontsize=10, fontweight='bold')
-                ax.set_xlabel('齿号')
+                ax.set_xlabel('Tooth Number')
                 ax.set_ylabel('Fp (μm)')
                 ax.grid(True, linestyle=':', alpha=0.5)
                 ax.set_xlim(0, len(teeth_left)+1)
@@ -333,7 +333,7 @@ if uploaded_file is not None:
 
         # 右齿面图表
         if pitch_data_right and 'teeth' in pitch_data_right:
-            st.subheader("右齿面周节偏差")
+            st.subheader("Right Flank Pitch Deviation")
             teeth_right = pitch_data_right['teeth']
             fp_values_right = pitch_data_right['fp_values']
             Fp_values_right = pitch_data_right['Fp_values']
@@ -352,7 +352,7 @@ if uploaded_file is not None:
                 fig, ax = plt.subplots(figsize=(8, 4))
                 ax.bar(teeth_right, fp_values_right, color='white', edgecolor='black', width=1.0, linewidth=0.5)
                 ax.set_title('Tooth to tooth spacing fp right flank', fontsize=10, fontweight='bold')
-                ax.set_xlabel('齿号')
+                ax.set_xlabel('Tooth Number')
                 ax.set_ylabel('fp (μm)')
                 ax.grid(True, linestyle=':', alpha=0.5)
                 ax.set_xlim(0, len(teeth_right)+1)
@@ -363,14 +363,14 @@ if uploaded_file is not None:
                 fig, ax = plt.subplots(figsize=(8, 4))
                 ax.plot(teeth_right, Fp_values_adjusted, 'k-', linewidth=1.0)
                 ax.set_title('Index Fp right flank', fontsize=10, fontweight='bold')
-                ax.set_xlabel('齿号')
+                ax.set_xlabel('Tooth Number')
                 ax.set_ylabel('Fp (μm)')
                 ax.grid(True, linestyle=':', alpha=0.5)
                 ax.set_xlim(0, len(teeth_right)+1)
                 st.pyplot(fig)
 
         st.markdown("---")
-        st.markdown("### Runout 径向跳动")
+        st.markdown("### Runout")
 
         # Runout图表
         if pitch_data_left and 'teeth' in pitch_data_left:
@@ -394,7 +394,7 @@ if uploaded_file is not None:
                     ax.plot(x_smooth, y_smooth, 'k-', linewidth=1.5, label='Sine fit')
 
                 ax.set_title('Runout Fr (Ball-Ø =3mm)', fontsize=12, fontweight='bold')
-                ax.set_xlabel('齿号')
+                ax.set_xlabel('Tooth Number')
                 ax.set_ylabel('Fr (μm)')
                 ax.grid(True, linestyle=':', alpha=0.5)
                 ax.set_xlim(0, len(teeth)+1)
@@ -402,11 +402,11 @@ if uploaded_file is not None:
                 st.pyplot(fig)
 
         st.markdown("---")
-        st.markdown("### 周节偏差统计表")
+        st.markdown("### Pitch Deviation Statistics")
 
         # 计算统计数据
         def calc_pitch_stats(pitch_data):
-            """计算周节统计数据"""
+            """Calculate pitch deviation statistics"""
             if not pitch_data or 'teeth' not in pitch_data:
                 return {}
 
@@ -488,13 +488,13 @@ if uploaded_file is not None:
             st.dataframe(df_stats, use_container_width=True, hide_index=True)
 
         st.markdown("---")
-        st.markdown("### 周节偏差数据明细表")
+        st.markdown("### Pitch Deviation Detail Data")
 
         # 左齿面数据表
         if pitch_left and pitch_left.teeth:
-            st.subheader("左齿面周节")
+            st.subheader("Left Flank Pitch")
             df_left = pd.DataFrame({
-                '齿号': pitch_left.teeth,
+                'Tooth Number': pitch_left.teeth,
                 'fp (μm)': pitch_left.fp_values,
                 'Fp (μm)': pitch_left.Fp_values
             })
@@ -502,197 +502,197 @@ if uploaded_file is not None:
 
         # 右齿面数据表
         if pitch_right and pitch_right.teeth:
-            st.subheader("右齿面周节")
+            st.subheader("Right Flank Pitch")
             df_right = pd.DataFrame({
-                '齿号': pitch_right.teeth,
+                'Tooth Number': pitch_right.teeth,
                 'fp (μm)': pitch_right.fp_values,
                 'Fp (μm)': pitch_right.Fp_values
             })
             st.dataframe(df_right, use_container_width=True)
-    
+
     elif page == '📈 单齿分析':
-        st.markdown("## 单齿详细分析")
-        
-        selected_tooth = st.number_input("选择齿号", min_value=1, max_value=200, value=1)
+        st.markdown("## Single Tooth Analysis")
+
+        selected_tooth = st.number_input("Select Tooth Number", min_value=1, max_value=200, value=1)
         
         profile_data = analyzer.reader.profile_data
         helix_data = analyzer.reader.helix_data
         
-        st.markdown("### 齿形偏差曲线")
+        st.markdown("### Profile Deviation Curves")
         cols = st.columns(2)
-        
+
         for idx, side in enumerate(['left', 'right']):
-            side_name = '左齿形' if side == 'left' else '右齿形'
-            
+            side_name = 'Left Profile' if side == 'left' else 'Right Profile'
+
             if selected_tooth in profile_data.get(side, {}):
                 with cols[idx]:
                     tooth_profiles = profile_data[side][selected_tooth]
                     helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
                     best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
                     values = tooth_profiles[best_z]
-                    
+
                     fig, ax = plt.subplots(figsize=(8, 6))
                     x_data = np.linspace(0, 8, len(values))
-                    ax.plot(x_data, values, 'b-', linewidth=1.5, label='原始数据')
-                    
-                    ax.set_title(f"{side_name} - 齿号 {selected_tooth}", fontsize=12, fontweight='bold')
-                    ax.set_xlabel("展长 (mm)")
-                    ax.set_ylabel("偏差 (μm)")
+                    ax.plot(x_data, values, 'b-', linewidth=1.5, label='Raw Data')
+
+                    ax.set_title(f"{side_name} - Tooth {selected_tooth}", fontsize=12, fontweight='bold')
+                    ax.set_xlabel("Evaluation Length (mm)")
+                    ax.set_ylabel("Deviation (μm)")
                     ax.legend()
                     ax.grid(True, alpha=0.3)
                     st.pyplot(fig)
-        
-        st.markdown("### 齿向偏差曲线")
+
+        st.markdown("### Lead Deviation Curves")
         cols = st.columns(2)
-        
+
         for idx, side in enumerate(['left', 'right']):
-            side_name = '左齿向' if side == 'left' else '右齿向'
-            
+            side_name = 'Left Lead' if side == 'left' else 'Right Lead'
+
             if selected_tooth in helix_data.get(side, {}):
                 with cols[idx]:
                     tooth_helix = helix_data[side][selected_tooth]
                     profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
                     best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
                     values = tooth_helix[best_d]
-                    
+
                     fig, ax = plt.subplots(figsize=(8, 6))
                     x_data = np.linspace(0, 40, len(values))
-                    ax.plot(x_data, values, 'g-', linewidth=1.5, label='原始数据')
-                    
-                    ax.set_title(f"{side_name} - 齿号 {selected_tooth}", fontsize=12, fontweight='bold')
-                    ax.set_xlabel("齿宽 (mm)")
-                    ax.set_ylabel("偏差 (μm)")
+                    ax.plot(x_data, values, 'g-', linewidth=1.5, label='Raw Data')
+
+                    ax.set_title(f"{side_name} - Tooth {selected_tooth}", fontsize=12, fontweight='bold')
+                    ax.set_xlabel("Face Width (mm)")
+                    ax.set_ylabel("Deviation (μm)")
                     ax.legend()
                     ax.grid(True, alpha=0.3)
                     st.pyplot(fig)
     
     elif page == '📉 合并曲线':
-        st.markdown("## 合并曲线分析 (0-360°)")
-        
+        st.markdown("## Merged Curve Analysis (0-360°)")
+
         ze = gear_params.teeth_count if gear_params else 87
-        
+
         name_mapping = {
-            'profile_left': '左齿形',
-            'profile_right': '右齿形',
-            'helix_left': '左齿向',
-            'helix_right': '右齿向'
+            'profile_left': 'Left Profile',
+            'profile_right': 'Right Profile',
+            'helix_left': 'Left Lead',
+            'helix_right': 'Right Lead'
         }
-        
+
         for name, result in results.items():
             if result is None or len(result.angles) == 0:
                 continue
-            
+
             display_name = name_mapping.get(name, name)
-            
+
             with st.expander(f"📈 {display_name}", expanded=True):
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("高阶总振幅 W", f"{result.high_order_amplitude:.4f} μm")
+                    st.metric("High Order Amplitude W", f"{result.high_order_amplitude:.4f} μm")
                 with col2:
-                    st.metric("高阶 RMS", f"{result.high_order_rms:.4f} μm")
+                    st.metric("High Order RMS", f"{result.high_order_rms:.4f} μm")
                 with col3:
-                    st.metric("高阶波数", len(result.high_order_waves))
+                    st.metric("High Order Wave Count", len(result.high_order_waves))
                 with col4:
                     if result.spectrum_components and len(result.spectrum_components) > 0:
                         max_order = result.spectrum_components[0].order
-                        st.metric("主导阶次", int(max_order))
+                        st.metric("Dominant Order", int(max_order))
                     else:
-                        st.metric("主导阶次", "-")
-                
+                        st.metric("Dominant Order", "-")
+
                 fig, ax = plt.subplots(figsize=(14, 5))
-                ax.plot(result.angles, result.values, 'b-', linewidth=0.5, alpha=0.7, label='原始曲线')
-                ax.plot(result.angles, result.reconstructed_signal, 'r-', linewidth=1.5, label='高阶重构')
-                ax.set_xlabel('旋转角度 (°)')
-                ax.set_ylabel('偏差 (μm)')
-                ax.set_title(f'{display_name} - 合并曲线 (ZE={ze})')
+                ax.plot(result.angles, result.values, 'b-', linewidth=0.5, alpha=0.7, label='Raw Curve')
+                ax.plot(result.angles, result.reconstructed_signal, 'r-', linewidth=1.5, label='High Order Reconstruction')
+                ax.set_xlabel('Rotation Angle (°)')
+                ax.set_ylabel('Deviation (μm)')
+                ax.set_title(f'{display_name} - Merged Curve (ZE={ze})')
                 ax.legend()
                 ax.grid(True, alpha=0.3)
                 ax.set_xlim(0, 360)
                 st.pyplot(fig)
-        
+
         st.markdown("---")
-        st.markdown("### 前5个齿放大显示")
-        
+        st.markdown("### First 5 Teeth Zoom View")
+
         pitch_angle = 360.0 / ze if ze > 0 else 4.14
         end_angle = 5 * pitch_angle
-        
+
         for name, result in [
-            ('左齿形', results.get('profile_left')),
-            ('右齿形', results.get('profile_right')),
-            ('左齿向', results.get('helix_left')),
-            ('右齿向', results.get('helix_right'))
+            ('Left Profile', results.get('profile_left')),
+            ('Right Profile', results.get('profile_right')),
+            ('Left Lead', results.get('helix_left')),
+            ('Right Lead', results.get('helix_right'))
         ]:
             if result is None or len(result.angles) == 0:
                 continue
-            
+
             display_name = name
-            
+
             mask = (result.angles >= 0) & (result.angles <= end_angle)
             if np.sum(mask) > 0:
                 zoom_angles = result.angles[mask]
                 zoom_values = result.values[mask]
                 zoom_reconstructed = result.reconstructed_signal[mask]
-                
+
                 fig, ax = plt.subplots(figsize=(10, 4))
-                ax.plot(zoom_angles, zoom_values, 'b-', linewidth=0.8, alpha=0.7, label='原始曲线')
-                ax.plot(zoom_angles, zoom_reconstructed, 'r-', linewidth=1.5, label='高阶重构')
-                ax.set_xlabel('旋转角度 (°)')
-                ax.set_ylabel('偏差 (μm)')
-                ax.set_title(f'{display_name} - 前5个齿 (0° ~ {end_angle:.1f}°)')
+                ax.plot(zoom_angles, zoom_values, 'b-', linewidth=0.8, alpha=0.7, label='Raw Curve')
+                ax.plot(zoom_angles, zoom_reconstructed, 'r-', linewidth=1.5, label='High Order Reconstruction')
+                ax.set_xlabel('Rotation Angle (°)')
+                ax.set_ylabel('Deviation (μm)')
+                ax.set_title(f'{display_name} - First 5 Teeth (0° ~ {end_angle:.1f}°)')
                 ax.legend()
                 ax.grid(True, alpha=0.3)
                 st.pyplot(fig)
     
     elif page == '📊 频谱分析':
-        st.markdown("## 频谱分析")
-        
+        st.markdown("## Spectrum Analysis")
+
         ze = gear_params.teeth_count if gear_params else 87
-        
+
         name_mapping = {
-            'profile_left': '左齿形',
-            'profile_right': '右齿形',
-            'helix_left': '左齿向',
-            'helix_right': '右齿向'
+            'profile_left': 'Left Profile',
+            'profile_right': 'Right Profile',
+            'helix_left': 'Left Lead',
+            'helix_right': 'Right Lead'
         }
-        
+
         for name, result in results.items():
             if result is None or len(result.angles) == 0:
                 continue
-            
+
             display_name = name_mapping.get(name, name)
-            
+
             with st.expander(f"📈 {display_name}", expanded=True):
-                st.markdown("#### 前10个较大阶次")
-                
+                st.markdown("#### Top 10 Largest Orders")
+
                 spectrum_data = []
                 for i, comp in enumerate(result.spectrum_components[:10]):
-                    order_type = '高阶' if comp.order >= ze else '低阶'
+                    order_type = 'High Order' if comp.order >= ze else 'Low Order'
                     spectrum_data.append({
-                        '排名': i + 1,
-                        '阶次': int(comp.order),
-                        '振幅 (μm)': f"{comp.amplitude:.4f}",
-                        '相位 (°)': f"{np.degrees(comp.phase):.1f}",
-                        '类型': order_type
+                        'Rank': i + 1,
+                        'Order': int(comp.order),
+                        'Amplitude (μm)': f"{comp.amplitude:.4f}",
+                        'Phase (°)': f"{np.degrees(comp.phase):.1f}",
+                        'Type': order_type
                     })
                 st.table(spectrum_data)
-                
-                st.markdown("#### 频谱图")
-                
+
+                st.markdown("#### Spectrum Chart")
+
                 fig, ax = plt.subplots(figsize=(12, 5))
                 sorted_components = sorted(result.spectrum_components[:20], key=lambda c: c.order)
                 orders = [c.order for c in sorted_components]
                 amplitudes = [c.amplitude for c in sorted_components]
-                
+
                 if orders and amplitudes:
                     colors_bar = ['red' if o >= ze else 'steelblue' for o in orders]
                     ax.bar(orders, amplitudes, color=colors_bar, alpha=0.7, width=3)
-                    
+
                     ax.axvline(x=ze, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
                     ax.set_xlim(0, max(orders) + 20)
-                
-                ax.set_xlabel('阶次')
-                ax.set_ylabel('振幅 (μm)')
-                ax.set_title(f'{display_name} - 频谱图 (ZE={ze})')
+
+                ax.set_xlabel('Order')
+                ax.set_ylabel('Amplitude (μm)')
+                ax.set_title(f'{display_name} - Spectrum (ZE={ze})')
                 ax.legend()
                 ax.grid(True, alpha=0.3)
                 st.pyplot(fig)
