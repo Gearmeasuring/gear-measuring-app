@@ -568,8 +568,8 @@ class RippleWavinessAnalyzer:
                         all_values.extend(corrected.tolist())
                     else:
                         # 齿向数据处理
-                        b1 = self.reader.b1
-                        b2 = self.reader.b2
+                        b1 = self.reader.b1  # 起评点
+                        b2 = self.reader.b2  # 终评点
                         ba = min(b1, b2)  # 默认使用评估范围
                         be = max(b1, b2)
                         
@@ -599,13 +599,32 @@ class RippleWavinessAnalyzer:
                         corrected = self._remove_crown_and_slope(raw_values)
                         n = len(corrected)
                         
-                        # 计算角度 - 齿向数据均匀分布在齿的角度范围内
+                        # 计算角度 - 使用螺旋角公式
+                        # 极角 = 2 * (测量点 - 起评点) * tan(螺旋角) / 节圆直径
                         tooth_index = int(tooth_id) - 1
                         tooth_base_angle = tooth_index * pitch_angle_deg
-                        pitch_angle = 360.0 / teeth_count
-                        # 齿向数据均匀分布在齿的角度范围内（使用0.95避免重叠）
-                        point_angles_within_tooth = np.linspace(0, pitch_angle * 0.95, n)
-                        final_angles = tooth_base_angle + point_angles_within_tooth
+                        
+                        # 从起评点到终评点的测量点位置
+                        eval_start = min(b1, b2)
+                        eval_end = max(b1, b2)
+                        meas_points = np.linspace(eval_start, eval_end, n)
+                        
+                        # 计算每个测量点的极角变化
+                        # 极角 = 2 * (测量点 - 起评点) * tan(螺旋角) / 节圆直径
+                        if pitch_diameter > 0 and abs(helix_angle) > 0.01:
+                            point_angle_change = 2.0 * (meas_points - eval_start) * np.tan(np.radians(abs(helix_angle))) / pitch_diameter
+                            point_angles_deg = np.degrees(point_angle_change)
+                        else:
+                            # 如果螺旋角为0，使用均匀分布
+                            pitch_angle = 360.0 / teeth_count
+                            point_angles_deg = np.linspace(0, pitch_angle * 0.95, n)
+                        
+                        # 右齿向：齿1=0°，齿2=节距角，齿3=2*节距角，按齿数节距角加每一个测量点的极角
+                        # 左齿向：齿1=0°，齿2=节距角，齿3=2*节距角，按齿数节距角减每一个测量点的极角
+                        if side == 'right':
+                            final_angles = tooth_base_angle + point_angles_deg
+                        else:
+                            final_angles = tooth_base_angle - point_angles_deg
                         
                         all_angles.extend(final_angles.tolist())
                         all_values.extend(corrected.tolist())
