@@ -100,27 +100,28 @@ if uploaded_file is not None:
         st.header("📊 齿轮参数")
         
         if use_gear_analysis and gear_data:
-            basic_info = gear_data.basic_info
+            # parse_mka_file 返回的是字典，不是 GearMeasurementData 对象
+            gear_basic = gear_data.get('gear_data', {})
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("模数 (mn)", f"{basic_info.module:.3f}")
+                st.metric("模数 (mn)", f"{gear_basic.get('module', 0):.3f}")
             with col2:
-                st.metric("齿数 (z)", basic_info.teeth)
+                st.metric("齿数 (z)", gear_basic.get('teeth', 0))
             with col3:
-                st.metric("压力角 (α)", f"{basic_info.pressure_angle:.1f}°")
+                st.metric("压力角 (α)", f"{gear_basic.get('pressure_angle', 0):.1f}°")
             with col4:
-                st.metric("螺旋角 (β)", f"{basic_info.helix_angle:.1f}°")
+                st.metric("螺旋角 (β)", f"{gear_basic.get('helix_angle', 0):.1f}°")
             
             st.subheader("详细信息")
             info_col1, info_col2 = st.columns(2)
             with info_col1:
-                st.write(f"**程序:** {basic_info.program}")
-                st.write(f"**日期:** {basic_info.date}")
-                st.write(f"**操作员:** {basic_info.operator}")
+                st.write(f"**程序:** {gear_basic.get('program', '')}")
+                st.write(f"**日期:** {gear_basic.get('date', '')}")
+                st.write(f"**操作员:** {gear_basic.get('operator', '')}")
             with info_col2:
-                st.write(f"**图号:** {basic_info.drawing_no}")
-                st.write(f"**订单号:** {basic_info.order_no}")
-                st.write(f"**客户:** {basic_info.customer}")
+                st.write(f"**图号:** {gear_basic.get('drawing_no', '')}")
+                st.write(f"**订单号:** {gear_basic.get('order_no', '')}")
+                st.write(f"**客户:** {gear_basic.get('customer', '')}")
         elif analyzer and analyzer.gear_params:
             params = analyzer.gear_params
             col1, col2, col3, col4 = st.columns(4)
@@ -138,15 +139,16 @@ if uploaded_file is not None:
     elif page == '📊 周节详细报表':
         st.header("📊 周节详细报表")
         
-        if use_gear_analysis and gear_data and gear_data.has_pitch_data():
+        if use_gear_analysis and gear_data:
             import pandas as pd
+            pitch_data = gear_data.get('pitch_data', {})
             
             # 左齿面周节
-            if gear_data.pitch_data.left:
+            if pitch_data.get('left'):
                 st.subheader("左齿面周节")
                 pitch_left_data = []
-                for tooth_num in sorted(gear_data.pitch_data.left.keys()):
-                    data = gear_data.pitch_data.left[tooth_num]
+                for tooth_num in sorted(pitch_data['left'].keys()):
+                    data = pitch_data['left'][tooth_num]
                     pitch_left_data.append({
                         '齿号': tooth_num,
                         'fp (μm)': data.get('fp', 0),
@@ -157,11 +159,11 @@ if uploaded_file is not None:
                 st.dataframe(df_left, use_container_width=True)
             
             # 右齿面周节
-            if gear_data.pitch_data.right:
+            if pitch_data.get('right'):
                 st.subheader("右齿面周节")
                 pitch_right_data = []
-                for tooth_num in sorted(gear_data.pitch_data.right.keys()):
-                    data = gear_data.pitch_data.right[tooth_num]
+                for tooth_num in sorted(pitch_data['right'].keys()):
+                    data = pitch_data['right'][tooth_num]
                     pitch_right_data.append({
                         '齿号': tooth_num,
                         'fp (μm)': data.get('fp', 0),
@@ -207,8 +209,14 @@ if uploaded_file is not None:
         st.header("📈 单齿分析")
         
         if use_gear_analysis and gear_data:
-            st.info(f"齿形数据: {gear_data.profile_data.get_tooth_count()} 齿")
-            st.info(f"齿向数据: {gear_data.flank_data.get_tooth_count()} 齿")
+            profile_data = gear_data.get('profile_data', {})
+            flank_data = gear_data.get('flank_data', {})
+            profile_left_count = len(profile_data.get('left', {}))
+            profile_right_count = len(profile_data.get('right', {}))
+            flank_left_count = len(flank_data.get('left', {}))
+            flank_right_count = len(flank_data.get('right', {}))
+            st.info(f"齿形数据: 左齿面 {profile_left_count} 齿, 右齿面 {profile_right_count} 齿")
+            st.info(f"齿向数据: 左齿面 {flank_left_count} 齿, 右齿面 {flank_right_count} 齿")
         elif analyzer:
             st.info(f"齿形数据: {len(analyzer.reader.profile_data.get('left', {}))} 齿")
             st.info(f"齿向数据: {len(analyzer.reader.helix_data.get('left', {}))} 齿")
