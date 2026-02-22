@@ -48,7 +48,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # 导入用户认证模块
 from auth import (
     init_session_state, login_page, logout, get_current_user,
-    register_user, login_user, change_password
+    register_user, login_user, change_password, admin_panel, is_admin
 )
 
 # 导入 gear_analysis_refactored 模块
@@ -98,6 +98,12 @@ with st.sidebar:
 
     st.markdown("---")
 
+    # 添加管理员面板按钮（仅管理员可见）
+    if user and is_admin(user["username"]):
+        if st.button("🔧 管理员面板", use_container_width=True):
+            st.session_state.show_admin = True
+            st.rerun()
+
     # 添加登出按钮
     if st.button("🚪 退出登录", use_container_width=True):
         logout()
@@ -121,6 +127,11 @@ with st.sidebar:
         ['📄 专业报告', '📊 周节详细报表', '📈 单齿分析', '📉 合并曲线', '📊 频谱分析'],
         index=0
     )
+
+# 检查是否显示管理员面板
+if st.session_state.get('show_admin', False):
+    admin_panel()
+    st.stop()
 
 if uploaded_file is not None:
     # 保存上传的文件到临时目录
