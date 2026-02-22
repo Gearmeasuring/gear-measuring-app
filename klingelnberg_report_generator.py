@@ -1,6 +1,7 @@
 """
 Klingelnberg 风格完整PDF报告生成器
 整合齿形、齿向、周节报表
+支持多页显示（每页6个齿）
 """
 
 import matplotlib
@@ -12,9 +13,10 @@ from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import io
 from datetime import datetime
+from types import SimpleNamespace
 
 class KlingelnbergReportGenerator:
-    """生成Klingelnberg风格的完整PDF报告"""
+    """生成Klingenberg风格的完整PDF报告"""
     
     def __init__(self):
         plt.rcParams['pdf.fonttype'] = 42
@@ -25,28 +27,49 @@ class KlingelnbergReportGenerator:
         """生成完整报告"""
         buffer = io.BytesIO()
         
+        # 收集所有齿号
+        all_teeth = set()
+        profile_left = analyzer.reader.profile_data.get('left', {})
+        profile_right = analyzer.reader.profile_data.get('right', {})
+        helix_left = analyzer.reader.helix_data.get('left', {})
+        helix_right = analyzer.reader.helix_data.get('right', {})
+        
+        all_teeth.update(profile_left.keys())
+        all_teeth.update(profile_right.keys())
+        all_teeth.update(helix_left.keys())
+        all_teeth.update(helix_right.keys())
+        
+        sorted_teeth = sorted(list(all_teeth))
+        if not sorted_teeth:
+            sorted_teeth = [1, 2, 3, 4, 5, 6]  # 默认齿号
+        
+        # 分页：每页6个齿
+        chunk_size = 6
+        tooth_chunks = [sorted_teeth[i:i + chunk_size] for i in range(0, len(sorted_teeth), chunk_size)]
+        
         with PdfPages(buffer) as pdf:
-            # 第1页：齿形/齿向报告（主页面）
-            self._create_profile_lead_page(pdf, analyzer)
+            # 为每6个齿生成一页Profile/Lead报告
+            for chunk in tooth_chunks:
+                self._create_profile_lead_page(pdf, analyzer, chunk)
             
-            # 第2页：周节报告
+            # 生成一页Spacing报告（显示所有齿的周节数据）
             self._create_spacing_page(pdf, analyzer)
         
         buffer.seek(0)
         return buffer
     
-    def _create_profile_lead_page(self, pdf, analyzer):
-        """创建齿形/齿向报告页面 - 模仿Klingelnberg格式"""
+    def _create_profile_lead_page(self, pdf, analyzer, teeth_chunk):
+        """创建齿形/齿向报告页面 - 显示指定齿号的数据"""
         fig = plt.figure(figsize=(8.27, 11.69), dpi=150)
         
         gear_params = analyzer.gear_params
         info = analyzer.reader.info if hasattr(analyzer.reader, 'info') else {}
         
-        # 页面标题
-        fig.suptitle('Gear Profile/Lead', fontsize=16, fontweight='bold', y=0.98)
+        # 页面标题（显示当前页码范围）
+        page_info = f"Teeth {min(teeth_chunk)}-{max(teeth_chunk)}"
+        fig.suptitle(f'Gear Profile/Lead - {page_info}', fontsize=14, fontweight='bold', y=0.98)
         
         # 创建网格布局
-        # 行：Header(0.12), Profile图表(0.28), Profile表格(0.08), Lead图表(0.28), Lead表格(0.08), 底部(0.04)
         gs = gridspec.GridSpec(
             6, 1,
             figure=fig,
@@ -59,29 +82,29 @@ class KlingelnbergReportGenerator:
         header_ax = fig.add_subplot(gs[0, 0])
         self._create_header(header_ax, analyzer, gear_params, info)
         
-        # 2. Profile图表区域（左右齿面）
+        # 2. Profile图表区域（左右齿面）- 只显示当前页的齿
         profile_gs = gridspec.GridSpecFromSubplotSpec(
             1, 2, subplot_spec=gs[1, 0], wspace=0.08
         )
         profile_left_ax = fig.add_subplot(profile_gs[0, 0])
         profile_right_ax = fig.add_subplot(profile_gs[0, 1])
-        self._create_profile_charts(profile_left_ax, profile_right_ax, analyzer)
+        self._create_profile_charts(profile_left_ax, profile_right_ax, analyzer, teeth_chunk)
         
         # 3. Profile数据表格
         profile_table_ax = fig.add_subplot(gs[2, 0])
-        self._create_profile_table(profile_table_ax, analyzer)
+        self._create_profile_table(profile_table_ax, analyzer, teeth_chunk)
         
-        # 4. Lead图表区域（左右齿面）
+        # 4. Lead图表区域（左右齿面）- 只显示当前页的齿
         lead_gs = gridspec.GridSpecFromSubplotSpec(
             1, 2, subplot_spec=gs[3, 0], wspace=0.08
         )
         lead_left_ax = fig.add_subplot(lead_gs[0, 0])
         lead_right_ax = fig.add_subplot(lead_gs[0, 1])
-        self._create_lead_charts(lead_left_ax, lead_right_ax, analyzer)
+        self._create_lead_charts(lead_left_ax, lead_right_ax, analyzer, teeth_chunk)
         
         # 5. Lead数据表格
         lead_table_ax = fig.add_subplot(gs[4, 0])
-        self._create_lead_table(lead_table_ax, analyzer)
+        self._create_lead_table(lead_table_ax, analyzer, teeth_chunk)
         
         # 6. 底部信息
         footer_ax = fig.add_subplot(gs[5, 0])
@@ -120,18 +143,13 @@ class KlingelnbergReportGenerator:
             except:
                 pass
         
-        # 计算评估长度
-        l_alpha_str = ""
-        l_beta_str = ""
-        appr_length_str = ""
-        
         # Header表格数据
         data = [
             ['Prog.No.:', fmt(info.get('program', '')), 'Operator:', fmt(info.get('operator', '')), 'Date:', fmt(info.get('date', ''))],
             ['Type:', fmt(info.get('type_', 'gear')), 'No. of teeth:', fmt(gear_params.teeth_count if gear_params else ''), 'Face Width:', fmt(info.get('width', ''), "{:.2f}mm")],
-            ['Drawing No.:', fmt(info.get('drawing_no', '')), 'Module m:', fmt(gear_params.module if gear_params else '', "{:.3f}mm"), 'Length Ev. Lα:', l_alpha_str],
-            ['Order No.:', fmt(info.get('order_no', '')), 'Pressure angle:', fmt(gear_params.pressure_angle if gear_params else '', "{:.0f}°"), 'Length Ev. Lβ:', l_beta_str],
-            ['Cust./Mach. N:', fmt(info.get('customer', '')), 'Helix angle:', fmt(gear_params.helix_angle if gear_params else '', "{:.2f}°"), 'Appr. Length:', appr_length_str],
+            ['Drawing No.:', fmt(info.get('drawing_no', '')), 'Module m:', fmt(gear_params.module if gear_params else '', "{:.3f}mm"), 'Length Ev. Lα:', ''],
+            ['Order No.:', fmt(info.get('order_no', '')), 'Pressure angle:', fmt(gear_params.pressure_angle if gear_params else '', "{:.0f}°"), 'Length Ev. Lβ:', ''],
+            ['Cust./Mach. N:', fmt(info.get('customer', '')), 'Helix angle:', fmt(gear_params.helix_angle if gear_params else '', "{:.2f}°"), 'Appr. Length:', ''],
             ['Loc. of check:', fmt(info.get('location', '')), 'Base Cir.-Ø db:', db_str, 'Stylus-Ø:', fmt(info.get('ball_diameter', ''), "{:.3f}mm")],
             ['Condition:', fmt(info.get('condition', '')), 'Base Helix ang:', beta_b_str, 'Add.Mod.Coe:', fmt(info.get('modification_coeff', ''), "{:.3f}")]
         ]
@@ -151,13 +169,13 @@ class KlingelnbergReportGenerator:
                 cell.set_text_props(verticalalignment='center', horizontalalignment='right')
             cell.set_height(1.0/7)
     
-    def _create_profile_charts(self, ax_left, ax_right, analyzer):
-        """创建齿形图表"""
-        self._draw_single_profile_chart(ax_left, 'Left Flank', analyzer.reader.profile_data.get('left', {}), analyzer)
-        self._draw_single_profile_chart(ax_right, 'Right Flank', analyzer.reader.profile_data.get('right', {}), analyzer)
+    def _create_profile_charts(self, ax_left, ax_right, analyzer, teeth_chunk):
+        """创建齿形图表 - 只显示指定齿号"""
+        self._draw_single_profile_chart(ax_left, 'Left Flank', analyzer.reader.profile_data.get('left', {}), analyzer, teeth_chunk)
+        self._draw_single_profile_chart(ax_right, 'Right Flank', analyzer.reader.profile_data.get('right', {}), analyzer, teeth_chunk)
     
-    def _draw_single_profile_chart(self, ax, title, tooth_data, analyzer):
-        """绘制单个齿形图表"""
+    def _draw_single_profile_chart(self, ax, title, tooth_data, analyzer, teeth_chunk):
+        """绘制单个齿形图表 - 只显示指定齿号"""
         ax.set_facecolor('white')
         for spine in ax.spines.values():
             spine.set_linewidth(1.0)
@@ -183,10 +201,20 @@ class KlingelnbergReportGenerator:
             ax.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax.transAxes)
             return
         
-        # 获取齿号（最多6个）
-        teeth = sorted(list(tooth_data.keys()))[:6]
+        # 只显示当前页的齿号
+        available_teeth = [t for t in teeth_chunk if t in tooth_data]
         
-        for i, tooth_num in enumerate(teeth):
+        # 根据左右齿面确定齿号排列顺序
+        if 'Left' in title:
+            teeth_to_show = sorted(available_teeth, reverse=True)  # 左侧：从大到小
+        else:
+            teeth_to_show = sorted(available_teeth)  # 右侧：从小到大
+        
+        if not teeth_to_show:
+            ax.text(0.5, 0.5, 'No Data for this page', ha='center', va='center', transform=ax.transAxes)
+            return
+        
+        for i, tooth_num in enumerate(teeth_to_show):
             x_center = i + 1
             values_dict = tooth_data[tooth_num]
             
@@ -224,7 +252,7 @@ class KlingelnbergReportGenerator:
                 ax.plot(x_positions[-1], y_positions[-1], '_', markersize=6, color='blue', markeredgewidth=1.5, zorder=5)
         
         # 设置坐标轴
-        num_teeth = len(teeth) if teeth else 6
+        num_teeth = len(teeth_to_show)
         ax.set_xlim(0.5, num_teeth + 0.5)
         ax.set_ylim(-1, 9)
         
@@ -265,18 +293,25 @@ class KlingelnbergReportGenerator:
         ax.plot(x_center - scale_width/2 - 0.05, y_center, 'k>', markersize=2, zorder=22, clip_on=False)
         ax.plot(x_center + scale_width/2 + 0.05, y_center, 'k<', markersize=2, zorder=22, clip_on=False)
     
-    def _create_profile_table(self, ax, analyzer):
-        """创建齿形数据表格"""
+    def _create_profile_table(self, ax, analyzer, teeth_chunk):
+        """创建齿形数据表格 - 只显示指定齿号"""
         ax.axis('off')
         
-        # 获取齿号
-        left_teeth = sorted(list(analyzer.reader.profile_data.get('left', {}).keys()))[:6]
-        right_teeth = sorted(list(analyzer.reader.profile_data.get('right', {}).keys()))[:6]
+        # 获取当前页的齿号
+        left_all = analyzer.reader.profile_data.get('left', {})
+        right_all = analyzer.reader.profile_data.get('right', {})
+        
+        left_teeth = [t for t in teeth_chunk if t in left_all]
+        right_teeth = [t for t in teeth_chunk if t in right_all]
+        
+        # 根据左右齿面确定齿号排列顺序
+        left_teeth = sorted(left_teeth, reverse=True)  # 左侧降序
+        right_teeth = sorted(right_teeth)  # 右侧升序
         
         if not left_teeth:
-            left_teeth = list(range(1, 7))
+            left_teeth = list(teeth_chunk[:3])
         if not right_teeth:
-            right_teeth = list(range(1, 7))
+            right_teeth = list(teeth_chunk[:3])
         
         # 表头
         left_headers = [str(t) for t in left_teeth]
@@ -289,12 +324,12 @@ class KlingelnbergReportGenerator:
         
         for param in params:
             row = [param]
-            # 左侧数据（示例）
+            # 左侧数据
             for t in left_teeth:
                 row.append('')
             row.append('±11 5')  # Lim.value Qual.
             row.append('±11 5')  # Lim.value Qual.
-            # 右侧数据（示例）
+            # 右侧数据
             for t in right_teeth:
                 row.append('')
             rows_data.append(row)
@@ -315,13 +350,13 @@ class KlingelnbergReportGenerator:
             if col == 0:
                 cell.set_text_props(weight='bold')
     
-    def _create_lead_charts(self, ax_left, ax_right, analyzer):
-        """创建齿向图表"""
-        self._draw_single_lead_chart(ax_left, 'Left Lead', analyzer.reader.helix_data.get('left', {}), analyzer)
-        self._draw_single_lead_chart(ax_right, 'Right Lead', analyzer.reader.helix_data.get('right', {}), analyzer)
+    def _create_lead_charts(self, ax_left, ax_right, analyzer, teeth_chunk):
+        """创建齿向图表 - 只显示指定齿号"""
+        self._draw_single_lead_chart(ax_left, 'Left Lead', analyzer.reader.helix_data.get('left', {}), analyzer, teeth_chunk)
+        self._draw_single_lead_chart(ax_right, 'Right Lead', analyzer.reader.helix_data.get('right', {}), analyzer, teeth_chunk)
     
-    def _draw_single_lead_chart(self, ax, title, tooth_data, analyzer):
-        """绘制单个齿向图表"""
+    def _draw_single_lead_chart(self, ax, title, tooth_data, analyzer, teeth_chunk):
+        """绘制单个齿向图表 - 只显示指定齿号"""
         ax.set_facecolor('white')
         for spine in ax.spines.values():
             spine.set_linewidth(1.0)
@@ -345,9 +380,20 @@ class KlingelnbergReportGenerator:
             ax.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax.transAxes)
             return
         
-        teeth = sorted(list(tooth_data.keys()))[:6]
+        # 只显示当前页的齿号
+        available_teeth = [t for t in teeth_chunk if t in tooth_data]
         
-        for i, tooth_num in enumerate(teeth):
+        # 根据左右齿面确定齿号排列顺序
+        if 'Left' in title:
+            teeth_to_show = sorted(available_teeth, reverse=True)  # 左侧：从大到小
+        else:
+            teeth_to_show = sorted(available_teeth)  # 右侧：从小到大
+        
+        if not teeth_to_show:
+            ax.text(0.5, 0.5, 'No Data for this page', ha='center', va='center', transform=ax.transAxes)
+            return
+        
+        for i, tooth_num in enumerate(teeth_to_show):
             x_center = i + 1
             values_dict = tooth_data[tooth_num]
             
@@ -377,7 +423,7 @@ class KlingelnbergReportGenerator:
                 ax.plot(x_positions[idx_eval_end], y_positions[idx_eval_end], '_', markersize=6, color='orange', markeredgewidth=1.5, zorder=5)
                 ax.plot(x_positions[-1], y_positions[-1], '_', markersize=6, color='blue', markeredgewidth=1.5, zorder=5)
         
-        num_teeth = len(teeth) if teeth else 6
+        num_teeth = len(teeth_to_show)
         ax.set_xlim(0.5, num_teeth + 0.5)
         ax.set_ylim(-5, 45)
         ax.set_yticks([0, 10, 20, 30, 40])
@@ -393,17 +439,24 @@ class KlingelnbergReportGenerator:
         self._draw_scale_box(ax)
         ax.tick_params(axis='y', labelsize=7)
     
-    def _create_lead_table(self, ax, analyzer):
-        """创建齿向数据表格"""
+    def _create_lead_table(self, ax, analyzer, teeth_chunk):
+        """创建齿向数据表格 - 只显示指定齿号"""
         ax.axis('off')
         
-        left_teeth = sorted(list(analyzer.reader.helix_data.get('left', {}).keys()))[:6]
-        right_teeth = sorted(list(analyzer.reader.helix_data.get('right', {}).keys()))[:6]
+        left_all = analyzer.reader.helix_data.get('left', {})
+        right_all = analyzer.reader.helix_data.get('right', {})
+        
+        left_teeth = [t for t in teeth_chunk if t in left_all]
+        right_teeth = [t for t in teeth_chunk if t in right_all]
+        
+        # 根据左右齿面确定齿号排列顺序
+        left_teeth = sorted(left_teeth, reverse=True)  # 左侧降序
+        right_teeth = sorted(right_teeth)  # 右侧升序
         
         if not left_teeth:
-            left_teeth = list(range(1, 7))
+            left_teeth = list(teeth_chunk[:3])
         if not right_teeth:
-            right_teeth = list(range(1, 7))
+            right_teeth = list(teeth_chunk[:3])
         
         left_headers = [str(t) for t in left_teeth]
         right_headers = [str(t) for t in right_teeth]
@@ -438,7 +491,7 @@ class KlingelnbergReportGenerator:
                 cell.set_text_props(weight='bold')
     
     def _create_spacing_page(self, pdf, analyzer):
-        """创建周节报告页面"""
+        """创建周节报告页面（显示所有齿的数据）"""
         fig = plt.figure(figsize=(8.27, 11.69), dpi=150)
         fig.suptitle('Gear Spacing', fontsize=16, fontweight='bold', y=0.98)
         
@@ -615,7 +668,6 @@ class KlingelnbergReportGenerator:
         
         # 绘制正弦拟合曲线
         if len(teeth) > 2:
-            import numpy as np
             x_smooth = np.linspace(min(teeth), max(teeth), 200)
             # 简单的正弦拟合
             amplitude = (max(runout_values) - min(runout_values)) / 2
