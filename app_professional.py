@@ -698,8 +698,14 @@ if uploaded_file is not None:
                 zoom_reconstructed = result.reconstructed_signal[mask]
 
                 fig, ax = plt.subplots(figsize=(10, 4))
-                ax.plot(zoom_angles, zoom_values, 'b-', linewidth=0.8, alpha=0.7, label='Raw Curve')
-                ax.plot(zoom_angles, zoom_reconstructed, 'r-', linewidth=1.5, label='High Order Reconstruction')
+                # 如果数据点过多，进行降采样以改善线条显示
+                if len(zoom_angles) > 5000:
+                    step = len(zoom_angles) // 2000 + 1
+                    zoom_angles = zoom_angles[::step]
+                    zoom_values = zoom_values[::step]
+                    zoom_reconstructed = zoom_reconstructed[::step]
+                ax.plot(zoom_angles, zoom_values, 'b-', linewidth=1.0, alpha=0.8, label='Raw Curve')
+                ax.plot(zoom_angles, zoom_reconstructed, 'r-', linewidth=2.0, label='High Order Reconstruction')
                 ax.set_xlabel('Rotation Angle (°)')
                 ax.set_ylabel('Deviation (μm)')
                 ax.set_title(f'{display_name} - First 5 Teeth (0° ~ {end_angle:.1f}°)')
