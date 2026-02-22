@@ -71,37 +71,35 @@ if uploaded_file is not None:
     with open(temp_path, "wb") as f:
         f.write(uploaded_file.getvalue())
     
-    # 使用 gear_analysis_refactored 解析文件
-    if GEAR_ANALYSIS_AVAILABLE:
-        try:
-            gear_data = parse_mka_file(temp_path)
-            st.success("✅ 使用 gear_analysis_refactored 解析文件成功")
-            use_gear_analysis = True
-        except Exception as e:
-            st.warning(f"gear_analysis_refactored 解析失败: {e}，使用备用解析器")
+    # 始终使用备用解析器（因为它有完整的分析功能）
+    analyzer = RippleWavinessAnalyzer(temp_path)
+    if analyzer.load_file():
+        st.success("✅ 文件解析成功")
+        
+        # 同时尝试使用 gear_analysis_refactored 获取额外信息
+        if GEAR_ANALYSIS_AVAILABLE:
+            try:
+                gear_data_dict = parse_mka_file(temp_path)
+                use_gear_analysis = True
+            except Exception as e:
+                gear_data_dict = None
+                use_gear_analysis = False
+        else:
+            gear_data_dict = None
             use_gear_analysis = False
     else:
-        use_gear_analysis = False
-    
-    # 使用备用解析器
-    if not use_gear_analysis:
-        analyzer = RippleWavinessAnalyzer(temp_path)
-        if analyzer.load_file():
-            st.success("✅ 使用备用解析器解析文件成功")
-        else:
-            st.error("❌ 文件解析失败")
-            gear_data = None
-            analyzer = None
-    else:
+        st.error("❌ 文件解析失败")
         analyzer = None
+        gear_data_dict = None
+        use_gear_analysis = False
     
     # 显示齿轮参数
     if page == '📄 专业报告':
         st.header("📊 齿轮参数")
         
-        if use_gear_analysis and gear_data:
-            # parse_mka_file 返回的是字典，不是 GearMeasurementData 对象
-            gear_basic = gear_data.get('gear_data', {})
+        if use_gear_analysis and gear_data_dict:
+            # 使用 gear_analysis_refactored 的详细数据
+            gear_basic = gear_data_dict.get('gear_data', {})
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("模数 (mn)", f"{gear_basic.get('module', 0):.3f}")
@@ -139,41 +137,8 @@ if uploaded_file is not None:
     elif page == '📊 周节详细报表':
         st.header("📊 周节详细报表")
         
-        if use_gear_analysis and gear_data:
-            import pandas as pd
-            pitch_data = gear_data.get('pitch_data', {})
-            
-            # 左齿面周节
-            if pitch_data.get('left'):
-                st.subheader("左齿面周节")
-                pitch_left_data = []
-                for tooth_num in sorted(pitch_data['left'].keys()):
-                    data = pitch_data['left'][tooth_num]
-                    pitch_left_data.append({
-                        '齿号': tooth_num,
-                        'fp (μm)': data.get('fp', 0),
-                        'Fp (μm)': data.get('Fp', 0),
-                        'Fr (μm)': data.get('Fr', 0)
-                    })
-                df_left = pd.DataFrame(pitch_left_data)
-                st.dataframe(df_left, use_container_width=True)
-            
-            # 右齿面周节
-            if pitch_data.get('right'):
-                st.subheader("右齿面周节")
-                pitch_right_data = []
-                for tooth_num in sorted(pitch_data['right'].keys()):
-                    data = pitch_data['right'][tooth_num]
-                    pitch_right_data.append({
-                        '齿号': tooth_num,
-                        'fp (μm)': data.get('fp', 0),
-                        'Fp (μm)': data.get('Fp', 0),
-                        'Fr (μm)': data.get('Fr', 0)
-                    })
-                df_right = pd.DataFrame(pitch_right_data)
-                st.dataframe(df_right, use_container_width=True)
-        elif analyzer:
-            # 使用备用解析器
+        if analyzer:
+            # 使用备用解析器的周节数据
             pitch_left = analyzer.analyze_pitch('left')
             if pitch_left.teeth:
                 st.subheader("左齿面周节")
@@ -202,24 +167,83 @@ if uploaded_file is not None:
                     'Fp (μm)': pitch_right.Fp_values
                 })
                 st.dataframe(df_right, use_container_width=True)
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("fp_max", f"{pitch_right.fp_max:.2f} μm")
+                with col2:
+                    st.metric("Fp_max", f"{pitch_right.Fp_max:.2f} μm")
+                with col3:
+                    st.metric("Fr", f"{pitch_right.Fr:.2f} μm")
         else:
             st.info("暂无周节数据")
                     
     elif page == '📈 单齿分析':
         st.header("📈 单齿分析")
         
-        if use_gear_analysis and gear_data:
-            profile_data = gear_data.get('profile_data', {})
-            flank_data = gear_data.get('flank_data', {})
-            profile_left_count = len(profile_data.get('left', {}))
-            profile_right_count = len(profile_data.get('right', {}))
-            flank_left_count = len(flank_data.get('left', {}))
-            flank_right_count = len(flank_data.get('right', {}))
-            st.info(f"齿形数据: 左齿面 {profile_left_count} 齿, 右齿面 {profile_right_count} 齿")
-            st.info(f"齿向数据: 左齿面 {flank_left_count} 齿, 右齿面 {flank_right_count} 齿")
-        elif analyzer:
-            st.info(f"齿形数据: {len(analyzer.reader.profile_data.get('left', {}))} 齿")
-            st.info(f"齿向数据: {len(analyzer.reader.helix_data.get('left', {}))} 齿")
+        if analyzer:
+            # 齿形数据
+            profile_left = analyzer.reader.profile_data.get('left', {})
+            profile_right = analyzer.reader.profile_data.get('right', {})
+            st.info(f"齿形数据: 左齿面 {len(profile_left)} 齿, 右齿面 {len(profile_right)} 齿")
+            
+            # 齿向数据
+            helix_left = analyzer.reader.helix_data.get('left', {})
+            helix_right = analyzer.reader.helix_data.get('right', {})
+            st.info(f"齿向数据: 左齿面 {len(helix_left)} 齿, 右齿面 {len(helix_right)} 齿")
+            
+            # 选择齿号和齿面
+            col1, col2 = st.columns(2)
+            with col1:
+                selected_tooth = st.number_input("选择齿号", min_value=1, max_value=200, value=1)
+            with col2:
+                selected_side = st.selectbox("选择齿面", ['左齿面', '右齿面'])
+            
+            side = 'left' if selected_side == '左齿面' else 'right'
+            
+            # 显示齿形曲线
+            if side in analyzer.reader.profile_data and selected_tooth in analyzer.reader.profile_data[side]:
+                st.subheader(f"齿形曲线 - {selected_side} 齿{selected_tooth}")
+                tooth_data = analyzer.reader.profile_data[side][selected_tooth]
+                
+                if isinstance(tooth_data, dict):
+                    for pos, values in tooth_data.items():
+                        fig, ax = plt.subplots(figsize=(10, 4))
+                        ax.plot(values, 'b-', linewidth=1)
+                        ax.set_xlabel('数据点')
+                        ax.set_ylabel('偏差 (μm)')
+                        ax.set_title(f'位置: {pos}')
+                        ax.grid(True, alpha=0.3)
+                        st.pyplot(fig)
+                else:
+                    fig, ax = plt.subplots(figsize=(10, 4))
+                    ax.plot(tooth_data, 'b-', linewidth=1)
+                    ax.set_xlabel('数据点')
+                    ax.set_ylabel('偏差 (μm)')
+                    ax.grid(True, alpha=0.3)
+                    st.pyplot(fig)
+            
+            # 显示齿向曲线
+            if side in analyzer.reader.helix_data and selected_tooth in analyzer.reader.helix_data[side]:
+                st.subheader(f"齿向曲线 - {selected_side} 齿{selected_tooth}")
+                tooth_data = analyzer.reader.helix_data[side][selected_tooth]
+                
+                if isinstance(tooth_data, dict):
+                    for pos, values in tooth_data.items():
+                        fig, ax = plt.subplots(figsize=(10, 4))
+                        ax.plot(values, 'g-', linewidth=1)
+                        ax.set_xlabel('数据点')
+                        ax.set_ylabel('偏差 (μm)')
+                        ax.set_title(f'位置: {pos}')
+                        ax.grid(True, alpha=0.3)
+                        st.pyplot(fig)
+                else:
+                    fig, ax = plt.subplots(figsize=(10, 4))
+                    ax.plot(tooth_data, 'g-', linewidth=1)
+                    ax.set_xlabel('数据点')
+                    ax.set_ylabel('偏差 (μm)')
+                    ax.grid(True, alpha=0.3)
+                    st.pyplot(fig)
         else:
             st.info("暂无单齿分析数据")
             
@@ -227,29 +251,35 @@ if uploaded_file is not None:
         st.header("📉 合并曲线")
         
         if analyzer:
+            # 选择齿面
+            side = st.selectbox("选择齿面", ['左齿面', '右齿面'], key='merge_side')
+            side_code = 'left' if side == '左齿面' else 'right'
+            
             # 齿形合并曲线
-            result_profile = analyzer.analyze_profile('left')
+            result_profile = analyzer.analyze_profile(side_code)
             if len(result_profile.angles) > 0:
+                st.subheader(f"齿形合并曲线 - {side}")
                 fig, ax = plt.subplots(figsize=(12, 4))
                 ax.plot(result_profile.angles, result_profile.values, 'b-', linewidth=0.5, label='原始曲线')
                 ax.plot(result_profile.angles, result_profile.reconstructed_signal, 'r-', linewidth=1, label='高阶重构')
                 ax.set_xlabel('旋转角度 (°)')
                 ax.set_ylabel('偏差 (μm)')
-                ax.set_title('齿形合并曲线 (0-360°) - 左齿面')
+                ax.set_title(f'齿形合并曲线 (0-360°) - {side}')
                 ax.legend()
                 ax.grid(True, alpha=0.3)
                 ax.set_xlim(0, 360)
                 st.pyplot(fig)
             
             # 齿向合并曲线
-            result_helix = analyzer.analyze_helix('left')
+            result_helix = analyzer.analyze_helix(side_code)
             if len(result_helix.angles) > 0:
+                st.subheader(f"齿向合并曲线 - {side}")
                 fig, ax = plt.subplots(figsize=(12, 4))
                 ax.plot(result_helix.angles, result_helix.values, 'b-', linewidth=0.5, label='原始曲线')
                 ax.plot(result_helix.angles, result_helix.reconstructed_signal, 'r-', linewidth=1, label='高阶重构')
                 ax.set_xlabel('旋转角度 (°)')
                 ax.set_ylabel('偏差 (μm)')
-                ax.set_title('齿向合并曲线 (0-360°) - 左齿面')
+                ax.set_title(f'齿向合并曲线 (0-360°) - {side}')
                 ax.legend()
                 ax.grid(True, alpha=0.3)
                 ax.set_xlim(0, 360)
@@ -261,7 +291,20 @@ if uploaded_file is not None:
         st.header("📊 频谱分析")
         
         if analyzer:
-            result = analyzer.analyze_profile('left')
+            # 选择分析类型和齿面
+            col1, col2 = st.columns(2)
+            with col1:
+                analysis_type = st.selectbox("分析类型", ['齿形', '齿向'], key='spectrum_type')
+            with col2:
+                side = st.selectbox("选择齿面", ['左齿面', '右齿面'], key='spectrum_side')
+            
+            side_code = 'left' if side == '左齿面' else 'right'
+            
+            if analysis_type == '齿形':
+                result = analyzer.analyze_profile(side_code)
+            else:
+                result = analyzer.analyze_helix(side_code)
+            
             if result.spectrum_components:
                 fig, ax = plt.subplots(figsize=(12, 5))
                 
@@ -271,12 +314,13 @@ if uploaded_file is not None:
                 ax.bar(orders, amplitudes, color='steelblue', edgecolor='navy', alpha=0.7)
                 ax.set_xlabel('阶次')
                 ax.set_ylabel('振幅 (μm)')
-                ax.set_title('频谱分析 - 齿形左齿面')
+                ax.set_title(f'频谱分析 - {analysis_type}{side}')
                 ax.grid(True, alpha=0.3, axis='y')
                 
                 ze = analyzer.gear_params.teeth_count if analyzer.gear_params else 87
                 ax.axvline(x=ze, color='r', linestyle='--', label=f'ZE = {ze}')
                 ax.axvline(x=2*ze, color='orange', linestyle='--', label=f'2ZE = {2*ze}')
+                ax.axvline(x=3*ze, color='green', linestyle='--', label=f'3ZE = {3*ze}')
                 ax.legend()
                 
                 st.pyplot(fig)
@@ -289,6 +333,16 @@ if uploaded_file is not None:
                 }
                 import pandas as pd
                 st.dataframe(pd.DataFrame(spectrum_data), use_container_width=True)
+                
+                # 显示高阶波纹度信息
+                st.subheader("高阶波纹度")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("高阶振幅总和", f"{result.high_order_amplitude:.4f} μm")
+                with col2:
+                    st.metric("高阶RMS", f"{result.high_order_rms:.4f} μm")
+            else:
+                st.info("暂无频谱数据")
         else:
             st.info("暂无频谱分析数据")
     
