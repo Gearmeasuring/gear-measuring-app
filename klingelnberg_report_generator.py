@@ -436,7 +436,7 @@ class KlingelnbergReportGenerator:
         left_deviations = {}
         for t in left_teeth:
             values = get_tooth_values(left_all, t)
-            if values:
+            if values is not None and len(values) > 0:
                 F_alpha, fH_alpha, ff_alpha = self._calculate_profile_deviations(values)
                 Ca = self._calculate_crowning(values)
                 left_deviations[t] = {
@@ -445,11 +445,11 @@ class KlingelnbergReportGenerator:
                     'ffa': ff_alpha,
                     'Ca': Ca
                 }
-        
+
         right_deviations = {}
         for t in right_teeth:
             values = get_tooth_values(right_all, t)
-            if values:
+            if values is not None and len(values) > 0:
                 F_alpha, fH_alpha, ff_alpha = self._calculate_profile_deviations(values)
                 Ca = self._calculate_crowning(values)
                 right_deviations[t] = {
@@ -684,7 +684,7 @@ class KlingelnbergReportGenerator:
         left_deviations = {}
         for t in left_teeth:
             values = get_tooth_values(left_all, t)
-            if values:
+            if values is not None and len(values) > 0:
                 F_beta, fH_beta, ff_beta = self._calculate_lead_deviations(values)
                 Cb = self._calculate_crowning(values)
                 left_deviations[t] = {
@@ -697,7 +697,7 @@ class KlingelnbergReportGenerator:
         right_deviations = {}
         for t in right_teeth:
             values = get_tooth_values(right_all, t)
-            if values:
+            if values is not None and len(values) > 0:
                 F_beta, fH_beta, ff_beta = self._calculate_lead_deviations(values)
                 Cb = self._calculate_crowning(values)
                 right_deviations[t] = {
