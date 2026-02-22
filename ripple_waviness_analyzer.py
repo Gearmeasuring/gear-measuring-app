@@ -539,9 +539,14 @@ class RippleWavinessAnalyzer:
                             
                             if end_idx - start_idx > 10:
                                 raw_values = raw_values[start_idx:end_idx]
+                                # 重新计算校正后的值和数据长度
+                                corrected = self._remove_crown_and_slope(raw_values)
+                                n = len(corrected)
                     
-                    corrected = self._remove_crown_and_slope(raw_values)
-                    n = len(corrected)
+                    # 如果上面没有重新计算，在这里计算
+                    if 'corrected' not in locals() or len(corrected) != len(raw_values):
+                        corrected = self._remove_crown_and_slope(raw_values)
+                        n = len(corrected)
                     
                     tooth_index = int(tooth_id) - 1
                     tooth_base_angle = tooth_index * pitch_angle_deg
