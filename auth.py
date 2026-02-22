@@ -66,14 +66,14 @@ def register_user(username: str, password: str, email: str = "", company: str = 
 
     # 检查用户名是否已存在
     if username in users:
-        return False, "Username already exists"
+        return False, "用户名已存在"
 
     # 验证输入
     if len(username) < 3:
-        return False, "Username must be at least 3 characters"
+        return False, "用户名至少需要3个字符"
 
     if len(password) < 6:
-        return False, "Password must be at least 6 characters"
+        return False, "密码至少需要6个字符"
 
     # 创建用户
     hashed_password, salt = hash_password(password)
@@ -91,7 +91,7 @@ def register_user(username: str, password: str, email: str = "", company: str = 
     }
 
     save_users(users)
-    return True, "Registration successful"
+    return True, "注册成功"
 
 
 def login_user(username: str, password: str) -> tuple:
@@ -102,15 +102,15 @@ def login_user(username: str, password: str) -> tuple:
     users = load_users()
 
     if username not in users:
-        return False, "Username or password is incorrect", None
+        return False, "用户名或密码错误", None
 
     user = users[username]
 
     if not user.get("is_active", True):
-        return False, "Account is disabled", None
+        return False, "账户已被禁用", None
 
     if not verify_password(password, user["password_hash"], user["salt"]):
-        return False, "Username or password is incorrect", None
+        return False, "用户名或密码错误", None
 
     # 更新最后登录时间
     user["last_login"] = datetime.now().isoformat()
@@ -126,7 +126,7 @@ def login_user(username: str, password: str) -> tuple:
         "last_login": user["last_login"]
     }
 
-    return True, "Login successful", user_data
+    return True, "登录成功", user_data
 
 
 def change_password(username: str, old_password: str, new_password: str) -> tuple:
@@ -135,17 +135,17 @@ def change_password(username: str, old_password: str, new_password: str) -> tupl
     返回 (success: bool, message: str)
     """
     if len(new_password) < 6:
-        return False, "New password must be at least 6 characters"
+        return False, "新密码至少需要6个字符"
 
     users = load_users()
 
     if username not in users:
-        return False, "User not found"
+        return False, "用户不存在"
 
     user = users[username]
 
     if not verify_password(old_password, user["password_hash"], user["salt"]):
-        return False, "Current password is incorrect"
+        return False, "当前密码错误"
 
     # 更新密码
     hashed_password, salt = hash_password(new_password)
@@ -153,7 +153,7 @@ def change_password(username: str, old_password: str, new_password: str) -> tupl
     user["salt"] = salt
 
     save_users(users)
-    return True, "Password changed successfully"
+    return True, "密码修改成功"
 
 
 def init_session_state():
@@ -168,7 +168,7 @@ def init_session_state():
 
 def login_page():
     """显示登录页面"""
-    st.title("🔐 Gear Measurement System")
+    st.title("🔐 齿轮测量报告系统")
     st.markdown("---")
 
     # 创建两列布局
@@ -177,51 +177,51 @@ def login_page():
     with col2:
         if st.session_state.show_register:
             # 注册界面
-            st.subheader("📝 User Registration")
+            st.subheader("📝 用户注册")
 
             with st.form("register_form"):
-                new_username = st.text_input("Username", placeholder="Enter username (min 3 chars)")
-                new_password = st.text_input("Password", type="password", placeholder="Enter password (min 6 chars)")
-                confirm_password = st.text_input("Confirm Password", type="password", placeholder="Confirm password")
-                email = st.text_input("Email (optional)", placeholder="your@email.com")
-                company = st.text_input("Company (optional)", placeholder="Your company name")
+                new_username = st.text_input("用户名", placeholder="请输入用户名（至少3个字符）")
+                new_password = st.text_input("密码", type="password", placeholder="请输入密码（至少6个字符）")
+                confirm_password = st.text_input("确认密码", type="password", placeholder="请再次输入密码")
+                email = st.text_input("邮箱（可选）", placeholder="your@email.com")
+                company = st.text_input("公司（可选）", placeholder="您的公司名称")
 
-                submitted = st.form_submit_button("Register", use_container_width=True)
+                submitted = st.form_submit_button("注册", use_container_width=True)
 
                 if submitted:
                     if not new_username or not new_password:
-                        st.error("Please fill in all required fields")
+                        st.error("请填写所有必填项")
                     elif new_password != confirm_password:
-                        st.error("Passwords do not match")
+                        st.error("两次输入的密码不一致")
                     else:
                         success, message = register_user(new_username, new_password, email, company)
                         if success:
                             st.success(message)
-                            st.info("Please login with your new account")
+                            st.info("请使用新账户登录")
                             st.session_state.show_register = False
                             st.rerun()
                         else:
                             st.error(message)
 
-            if st.button("← Back to Login", use_container_width=True):
+            if st.button("← 返回登录", use_container_width=True):
                 st.session_state.show_register = False
                 st.rerun()
 
         else:
             # 登录界面
-            st.subheader("🔑 User Login")
+            st.subheader("🔑 用户登录")
 
             with st.form("login_form"):
-                username = st.text_input("Username", placeholder="Enter your username")
-                password = st.text_input("Password", type="password", placeholder="Enter your password")
+                username = st.text_input("用户名", placeholder="请输入用户名")
+                password = st.text_input("密码", type="password", placeholder="请输入密码")
 
                 col_login, col_register = st.columns(2)
                 with col_login:
-                    login_submitted = st.form_submit_button("Login", use_container_width=True)
+                    login_submitted = st.form_submit_button("登录", use_container_width=True)
 
                 if login_submitted:
                     if not username or not password:
-                        st.error("Please enter both username and password")
+                        st.error("请输入用户名和密码")
                     else:
                         success, message, user_data = login_user(username, password)
                         if success:
@@ -233,19 +233,19 @@ def login_page():
                             st.error(message)
 
             # 注册按钮在表单外
-            if st.button("📝 Create New Account", use_container_width=True):
+            if st.button("📝 创建新账户", use_container_width=True):
                 st.session_state.show_register = True
                 st.rerun()
 
             # 显示系统信息
             st.markdown("---")
             st.markdown("""
-            **System Features:**
-            - 📊 Gear profile and lead analysis
-            - 📈 Pitch deviation measurement
-            - 📉 Merged curve analysis
-            - 📄 PDF report generation
-            - 🔒 Secure data storage
+            **系统功能：**
+            - 📊 齿形/齿向分析
+            - 📈 周节偏差测量
+            - 📉 合并曲线分析
+            - 📄 PDF报告生成
+            - 🔒 安全数据存储
             """)
 
 
