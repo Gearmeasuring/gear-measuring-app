@@ -1,0 +1,629 @@
+"""
+Klingelnberg 风格完整PDF报告生成器
+整合齿形、齿向、周节报表
+"""
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import matplotlib.patches as patches
+from matplotlib.backends.backend_pdf import PdfPages
+import numpy as np
+import io
+from datetime import datetime
+
+class KlingelnbergReportGenerator:
+    """生成Klingelnberg风格的完整PDF报告"""
+    
+    def __init__(self):
+        plt.rcParams['pdf.fonttype'] = 42
+        plt.rcParams['ps.fonttype'] = 42
+        plt.rcParams['font.sans-serif'] = ['Arial', 'DejaVu Sans', 'SimHei']
+    
+    def generate_full_report(self, analyzer, output_filename="gear_report.pdf"):
+        """生成完整报告"""
+        buffer = io.BytesIO()
+        
+        with PdfPages(buffer) as pdf:
+            # 第1页：齿形/齿向报告（主页面）
+            self._create_profile_lead_page(pdf, analyzer)
+            
+            # 第2页：周节报告
+            self._create_spacing_page(pdf, analyzer)
+        
+        buffer.seek(0)
+        return buffer
+    
+    def _create_profile_lead_page(self, pdf, analyzer):
+        """创建齿形/齿向报告页面 - 模仿Klingelnberg格式"""
+        fig = plt.figure(figsize=(8.27, 11.69), dpi=150)
+        
+        gear_params = analyzer.gear_params
+        info = analyzer.reader.info if hasattr(analyzer.reader, 'info') else {}
+        
+        # 页面标题
+        fig.suptitle('Gear Profile/Lead', fontsize=16, fontweight='bold', y=0.98)
+        
+        # 创建网格布局
+        # 行：Header(0.12), Profile图表(0.28), Profile表格(0.08), Lead图表(0.28), Lead表格(0.08), 底部(0.04)
+        gs = gridspec.GridSpec(
+            6, 1,
+            figure=fig,
+            height_ratios=[0.12, 0.28, 0.08, 0.28, 0.08, 0.04],
+            hspace=0.15,
+            left=0.06, right=0.96, top=0.94, bottom=0.04
+        )
+        
+        # 1. Header区域
+        header_ax = fig.add_subplot(gs[0, 0])
+        self._create_header(header_ax, analyzer, gear_params, info)
+        
+        # 2. Profile图表区域（左右齿面）
+        profile_gs = gridspec.GridSpecFromSubplotSpec(
+            1, 2, subplot_spec=gs[1, 0], wspace=0.08
+        )
+        profile_left_ax = fig.add_subplot(profile_gs[0, 0])
+        profile_right_ax = fig.add_subplot(profile_gs[0, 1])
+        self._create_profile_charts(profile_left_ax, profile_right_ax, analyzer)
+        
+        # 3. Profile数据表格
+        profile_table_ax = fig.add_subplot(gs[2, 0])
+        self._create_profile_table(profile_table_ax, analyzer)
+        
+        # 4. Lead图表区域（左右齿面）
+        lead_gs = gridspec.GridSpecFromSubplotSpec(
+            1, 2, subplot_spec=gs[3, 0], wspace=0.08
+        )
+        lead_left_ax = fig.add_subplot(lead_gs[0, 0])
+        lead_right_ax = fig.add_subplot(lead_gs[0, 1])
+        self._create_lead_charts(lead_left_ax, lead_right_ax, analyzer)
+        
+        # 5. Lead数据表格
+        lead_table_ax = fig.add_subplot(gs[4, 0])
+        self._create_lead_table(lead_table_ax, analyzer)
+        
+        # 6. 底部信息
+        footer_ax = fig.add_subplot(gs[5, 0])
+        footer_ax.axis('off')
+        
+        pdf.savefig(fig, bbox_inches='tight', pad_inches=0.05)
+        plt.close(fig)
+    
+    def _create_header(self, ax, analyzer, gear_params, info):
+        """创建Header表格"""
+        ax.axis('off')
+        
+        def fmt(val, default=""):
+            if val is None or val == "":
+                return default
+            return str(val)
+        
+        # 计算基圆直径
+        db_str = ""
+        beta_b_str = ""
+        if gear_params:
+            try:
+                import math
+                mn = gear_params.module
+                z = gear_params.teeth_count
+                alpha_n = math.radians(gear_params.pressure_angle)
+                beta = math.radians(gear_params.helix_angle)
+                
+                alpha_t = math.atan(math.tan(alpha_n) / math.cos(beta))
+                d = z * mn / math.cos(beta)
+                db = d * math.cos(alpha_t)
+                beta_b = math.degrees(math.asin(math.sin(beta) * math.cos(alpha_n)))
+                
+                db_str = f"{db:.4f}mm"
+                beta_b_str = f"{beta_b:.3f}°"
+            except:
+                pass
+        
+        # 计算评估长度
+        l_alpha_str = ""
+        l_beta_str = ""
+        appr_length_str = ""
+        
+        # Header表格数据
+        data = [
+            ['Prog.No.:', fmt(info.get('program', '')), 'Operator:', fmt(info.get('operator', '')), 'Date:', fmt(info.get('date', ''))],
+            ['Type:', fmt(info.get('type_', 'gear')), 'No. of teeth:', fmt(gear_params.teeth_count if gear_params else ''), 'Face Width:', fmt(info.get('width', ''), "{:.2f}mm")],
+            ['Drawing No.:', fmt(info.get('drawing_no', '')), 'Module m:', fmt(gear_params.module if gear_params else '', "{:.3f}mm"), 'Length Ev. Lα:', l_alpha_str],
+            ['Order No.:', fmt(info.get('order_no', '')), 'Pressure angle:', fmt(gear_params.pressure_angle if gear_params else '', "{:.0f}°"), 'Length Ev. Lβ:', l_beta_str],
+            ['Cust./Mach. N:', fmt(info.get('customer', '')), 'Helix angle:', fmt(gear_params.helix_angle if gear_params else '', "{:.2f}°"), 'Appr. Length:', appr_length_str],
+            ['Loc. of check:', fmt(info.get('location', '')), 'Base Cir.-Ø db:', db_str, 'Stylus-Ø:', fmt(info.get('ball_diameter', ''), "{:.3f}mm")],
+            ['Condition:', fmt(info.get('condition', '')), 'Base Helix ang:', beta_b_str, 'Add.Mod.Coe:', fmt(info.get('modification_coeff', ''), "{:.3f}")]
+        ]
+        
+        table = ax.table(cellText=data, loc='center', cellLoc='left', bbox=[0.02, 0, 0.98, 1])
+        table.auto_set_font_size(False)
+        table.set_fontsize(7)
+        table.auto_set_column_width(range(len(data[0])))
+        
+        cells = table.get_celld()
+        for (row, col), cell in cells.items():
+            cell.set_edgecolor('black')
+            cell.set_linewidth(0.5)
+            if col in [0, 2, 4]:  # 标签列
+                cell.set_text_props(verticalalignment='center', horizontalalignment='left', weight='bold')
+            else:
+                cell.set_text_props(verticalalignment='center', horizontalalignment='right')
+            cell.set_height(1.0/7)
+    
+    def _create_profile_charts(self, ax_left, ax_right, analyzer):
+        """创建齿形图表"""
+        self._draw_single_profile_chart(ax_left, 'Left Flank', analyzer.reader.profile_data.get('left', {}), analyzer)
+        self._draw_single_profile_chart(ax_right, 'Right Flank', analyzer.reader.profile_data.get('right', {}), analyzer)
+    
+    def _draw_single_profile_chart(self, ax, title, tooth_data, analyzer):
+        """绘制单个齿形图表"""
+        ax.set_facecolor('white')
+        for spine in ax.spines.values():
+            spine.set_linewidth(1.0)
+            spine.set_edgecolor('black')
+        
+        # 标题
+        ax.text(0.5, 0.98, title, transform=ax.transAxes,
+               fontsize=9, ha='center', va='top', fontweight='bold')
+        
+        # 标准信息框
+        if 'Left' in title:
+            ax.text(0.02, 0.98, 'DIN 3962', transform=ax.transAxes,
+                   fontsize=7, ha='left', va='top',
+                   bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='black', linewidth=0.8))
+            ax.text(0.02, 0.78, 'Tip', transform=ax.transAxes,
+                   fontsize=6, ha='left', va='center',
+                   bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', linewidth=0.5))
+            ax.text(0.02, 0.12, 'Root', transform=ax.transAxes,
+                   fontsize=6, ha='left', va='center',
+                   bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', linewidth=0.5))
+        
+        if not tooth_data:
+            ax.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax.transAxes)
+            return
+        
+        # 获取齿号（最多6个）
+        teeth = sorted(list(tooth_data.keys()))[:6]
+        
+        for i, tooth_num in enumerate(teeth):
+            x_center = i + 1
+            values_dict = tooth_data[tooth_num]
+            
+            if isinstance(values_dict, dict):
+                values = list(values_dict.values())[0] if values_dict else []
+            else:
+                values = values_dict
+            
+            if len(values) > 0:
+                # Y轴位置（展长）
+                y_positions = np.linspace(0, 8, len(values))
+                # X轴位置（偏差值，缩放50倍）
+                x_positions = x_center + (np.array(values) / 50.0)
+                
+                # 绘制曲线（红色）
+                ax.plot(x_positions, y_positions, 'r-', linewidth=0.8)
+                
+                # 零点垂直线
+                ax.axvline(x=x_center, color='black', linestyle='-', linewidth=0.5, ymin=0, ymax=1, zorder=3)
+                
+                # 标记起评点和终评点
+                n = len(values)
+                idx_eval_start = int(n * 0.15)
+                idx_eval_end = int(n * 0.85)
+                
+                ax.plot(x_center, y_positions[idx_eval_start], 'v',
+                       markersize=5, color='green', markerfacecolor='green', markeredgewidth=0, zorder=6)
+                ax.plot(x_center, y_positions[idx_eval_end], '^',
+                       markersize=5, color='orange', markerfacecolor='orange', markeredgewidth=0, zorder=6)
+                
+                # 在曲线上标记4个点
+                ax.plot(x_positions[0], y_positions[0], '_', markersize=6, color='blue', markeredgewidth=1.5, zorder=5)
+                ax.plot(x_positions[idx_eval_start], y_positions[idx_eval_start], '_', markersize=6, color='green', markeredgewidth=1.5, zorder=5)
+                ax.plot(x_positions[idx_eval_end], y_positions[idx_eval_end], '_', markersize=6, color='orange', markeredgewidth=1.5, zorder=5)
+                ax.plot(x_positions[-1], y_positions[-1], '_', markersize=6, color='blue', markeredgewidth=1.5, zorder=5)
+        
+        # 设置坐标轴
+        num_teeth = len(teeth) if teeth else 6
+        ax.set_xlim(0.5, num_teeth + 0.5)
+        ax.set_ylim(-1, 9)
+        
+        # Y轴刻度
+        ax.set_yticks([0, 2, 4, 6, 8])
+        ax.set_yticklabels(['0mm', '2mm', '4mm', '6mm', '8mm'], fontsize=6)
+        
+        # 垂直分隔线
+        for i in range(1, num_teeth):
+            ax.axvline(x=i + 0.5, color='black', linestyle='-', linewidth=0.8, zorder=2)
+        
+        # 网格
+        ax.minorticks_on()
+        ax.grid(True, which='major', axis='y', linestyle=':', linewidth=1.0, color='gray', alpha=1.0)
+        ax.grid(True, which='minor', axis='y', linestyle=':', linewidth=1.0, color='gray', alpha=1.0)
+        
+        # 10um比例尺
+        self._draw_scale_box(ax)
+        
+        ax.tick_params(axis='y', labelsize=7)
+    
+    def _draw_scale_box(self, ax):
+        """绘制10um比例尺标示框"""
+        scale_width = 0.2  # 10um = 10/50 = 0.2
+        x_center = 0.8
+        y_lim = ax.get_ylim()
+        y_center = y_lim[0] + (y_lim[1] - y_lim[0]) * 0.9
+        box_height = (y_lim[1] - y_lim[0]) * 0.08
+        
+        rect = patches.Rectangle(
+            (x_center - scale_width/2, y_center - box_height/2),
+            scale_width, box_height,
+            linewidth=0.8, edgecolor='black', facecolor='white', zorder=20
+        )
+        ax.add_patch(rect)
+        
+        ax.text(x_center, y_center, '10\nµm', ha='center', va='center', fontsize=5, zorder=21)
+        ax.plot(x_center - scale_width/2 - 0.05, y_center, 'k>', markersize=2, zorder=22, clip_on=False)
+        ax.plot(x_center + scale_width/2 + 0.05, y_center, 'k<', markersize=2, zorder=22, clip_on=False)
+    
+    def _create_profile_table(self, ax, analyzer):
+        """创建齿形数据表格"""
+        ax.axis('off')
+        
+        # 获取齿号
+        left_teeth = sorted(list(analyzer.reader.profile_data.get('left', {}).keys()))[:6]
+        right_teeth = sorted(list(analyzer.reader.profile_data.get('right', {}).keys()))[:6]
+        
+        if not left_teeth:
+            left_teeth = list(range(1, 7))
+        if not right_teeth:
+            right_teeth = list(range(1, 7))
+        
+        # 表头
+        left_headers = [str(t) for t in left_teeth]
+        right_headers = [str(t) for t in right_teeth]
+        headers = [''] + left_headers + ['Lim.value Qual.', 'Lim.value Qual.'] + right_headers
+        
+        # 数据行（示例数据）
+        params = ['fHam', 'fHa', 'fa', 'ffa', 'Ca']
+        rows_data = []
+        
+        for param in params:
+            row = [param]
+            # 左侧数据（示例）
+            for t in left_teeth:
+                row.append('')
+            row.append('±11 5')  # Lim.value Qual.
+            row.append('±11 5')  # Lim.value Qual.
+            # 右侧数据（示例）
+            for t in right_teeth:
+                row.append('')
+            rows_data.append(row)
+        
+        # 创建表格
+        table_data = [headers] + rows_data
+        table = ax.table(cellText=table_data, cellLoc='center', bbox=[0, 0, 1, 1], edges='closed')
+        table.auto_set_font_size(False)
+        table.set_fontsize(6)
+        table.auto_set_column_width(range(len(table_data[0])))
+        
+        for (row, col), cell in table.get_celld().items():
+            cell.set_edgecolor('black')
+            cell.set_linewidth(0.5)
+            cell.set_height(0.15)
+            if row == 0:
+                cell.set_text_props(weight='bold', fontsize=6)
+            if col == 0:
+                cell.set_text_props(weight='bold')
+    
+    def _create_lead_charts(self, ax_left, ax_right, analyzer):
+        """创建齿向图表"""
+        self._draw_single_lead_chart(ax_left, 'Left Lead', analyzer.reader.helix_data.get('left', {}), analyzer)
+        self._draw_single_lead_chart(ax_right, 'Right Lead', analyzer.reader.helix_data.get('right', {}), analyzer)
+    
+    def _draw_single_lead_chart(self, ax, title, tooth_data, analyzer):
+        """绘制单个齿向图表"""
+        ax.set_facecolor('white')
+        for spine in ax.spines.values():
+            spine.set_linewidth(1.0)
+            spine.set_edgecolor('black')
+        
+        ax.text(0.5, 0.98, title, transform=ax.transAxes,
+               fontsize=9, ha='center', va='top', fontweight='bold')
+        
+        if 'Left' in title:
+            ax.text(0.02, 0.98, 'DIN 3962', transform=ax.transAxes,
+                   fontsize=7, ha='left', va='top',
+                   bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='black', linewidth=0.8))
+            ax.text(0.02, 0.78, 'Top', transform=ax.transAxes,
+                   fontsize=6, ha='left', va='center',
+                   bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', linewidth=0.5))
+            ax.text(0.02, 0.12, 'Bottom', transform=ax.transAxes,
+                   fontsize=6, ha='left', va='center',
+                   bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', linewidth=0.5))
+        
+        if not tooth_data:
+            ax.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax.transAxes)
+            return
+        
+        teeth = sorted(list(tooth_data.keys()))[:6]
+        
+        for i, tooth_num in enumerate(teeth):
+            x_center = i + 1
+            values_dict = tooth_data[tooth_num]
+            
+            if isinstance(values_dict, dict):
+                values = list(values_dict.values())[0] if values_dict else []
+            else:
+                values = values_dict
+            
+            if len(values) > 0:
+                y_positions = np.linspace(0, 40, len(values))
+                x_positions = x_center + (np.array(values) / 50.0)
+                
+                ax.plot(x_positions, y_positions, 'k-', linewidth=0.8)
+                ax.axvline(x=x_center, color='black', linestyle='-', linewidth=0.5, ymin=0, ymax=1, zorder=3)
+                
+                n = len(values)
+                idx_eval_start = int(n * 0.15)
+                idx_eval_end = int(n * 0.85)
+                
+                ax.plot(x_center, y_positions[idx_eval_start], 'v',
+                       markersize=5, color='green', markerfacecolor='green', markeredgewidth=0, zorder=6)
+                ax.plot(x_center, y_positions[idx_eval_end], '^',
+                       markersize=5, color='orange', markerfacecolor='orange', markeredgewidth=0, zorder=6)
+                
+                ax.plot(x_positions[0], y_positions[0], '_', markersize=6, color='blue', markeredgewidth=1.5, zorder=5)
+                ax.plot(x_positions[idx_eval_start], y_positions[idx_eval_start], '_', markersize=6, color='green', markeredgewidth=1.5, zorder=5)
+                ax.plot(x_positions[idx_eval_end], y_positions[idx_eval_end], '_', markersize=6, color='orange', markeredgewidth=1.5, zorder=5)
+                ax.plot(x_positions[-1], y_positions[-1], '_', markersize=6, color='blue', markeredgewidth=1.5, zorder=5)
+        
+        num_teeth = len(teeth) if teeth else 6
+        ax.set_xlim(0.5, num_teeth + 0.5)
+        ax.set_ylim(-5, 45)
+        ax.set_yticks([0, 10, 20, 30, 40])
+        ax.set_yticklabels(['0mm', '10mm', '20mm', '30mm', '40mm'], fontsize=6)
+        
+        for i in range(1, num_teeth):
+            ax.axvline(x=i + 0.5, color='black', linestyle='-', linewidth=0.8, zorder=2)
+        
+        ax.minorticks_on()
+        ax.grid(True, which='major', axis='y', linestyle=':', linewidth=1.0, color='gray', alpha=1.0)
+        ax.grid(True, which='minor', axis='y', linestyle=':', linewidth=1.0, color='gray', alpha=1.0)
+        
+        self._draw_scale_box(ax)
+        ax.tick_params(axis='y', labelsize=7)
+    
+    def _create_lead_table(self, ax, analyzer):
+        """创建齿向数据表格"""
+        ax.axis('off')
+        
+        left_teeth = sorted(list(analyzer.reader.helix_data.get('left', {}).keys()))[:6]
+        right_teeth = sorted(list(analyzer.reader.helix_data.get('right', {}).keys()))[:6]
+        
+        if not left_teeth:
+            left_teeth = list(range(1, 7))
+        if not right_teeth:
+            right_teeth = list(range(1, 7))
+        
+        left_headers = [str(t) for t in left_teeth]
+        right_headers = [str(t) for t in right_teeth]
+        headers = [''] + left_headers + ['Lim.value Qual.', 'Lim.value Qual.'] + right_headers
+        
+        params = ['fHbm', 'fHb', 'fb', 'ffb', 'Cb']
+        rows_data = []
+        
+        for param in params:
+            row = [param]
+            for t in left_teeth:
+                row.append('')
+            row.append('±8 5')
+            row.append('±8 5')
+            for t in right_teeth:
+                row.append('')
+            rows_data.append(row)
+        
+        table_data = [headers] + rows_data
+        table = ax.table(cellText=table_data, cellLoc='center', bbox=[0, 0, 1, 1], edges='closed')
+        table.auto_set_font_size(False)
+        table.set_fontsize(6)
+        table.auto_set_column_width(range(len(table_data[0])))
+        
+        for (row, col), cell in table.get_celld().items():
+            cell.set_edgecolor('black')
+            cell.set_linewidth(0.5)
+            cell.set_height(0.15)
+            if row == 0:
+                cell.set_text_props(weight='bold', fontsize=6)
+            if col == 0:
+                cell.set_text_props(weight='bold')
+    
+    def _create_spacing_page(self, pdf, analyzer):
+        """创建周节报告页面"""
+        fig = plt.figure(figsize=(8.27, 11.69), dpi=150)
+        fig.suptitle('Gear Spacing', fontsize=16, fontweight='bold', y=0.98)
+        
+        gs = gridspec.GridSpec(
+            6, 1,
+            figure=fig,
+            height_ratios=[0.12, 0.22, 0.22, 0.15, 0.20, 0.05],
+            hspace=0.4,
+            left=0.08, right=0.95, top=0.95, bottom=0.05
+        )
+        
+        # Header
+        header_ax = fig.add_subplot(gs[0, 0])
+        self._create_spacing_header(header_ax, analyzer)
+        
+        # 左齿面图表
+        left_gs = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[1, 0], hspace=0.1)
+        ax_fp_left = fig.add_subplot(left_gs[0, 0])
+        ax_Fp_left = fig.add_subplot(left_gs[1, 0])
+        self._create_spacing_charts(ax_fp_left, ax_Fp_left, analyzer, 'left')
+        
+        # 右齿面图表
+        right_gs = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[2, 0], hspace=0.1)
+        ax_fp_right = fig.add_subplot(right_gs[0, 0])
+        ax_Fp_right = fig.add_subplot(right_gs[1, 0])
+        self._create_spacing_charts(ax_fp_right, ax_Fp_right, analyzer, 'right')
+        
+        # 数据表格
+        table_ax = fig.add_subplot(gs[3, 0])
+        self._create_spacing_table(table_ax, analyzer)
+        
+        # Runout图表
+        runout_ax = fig.add_subplot(gs[4, 0])
+        self._create_runout_chart(runout_ax, analyzer)
+        
+        # Footer
+        footer_ax = fig.add_subplot(gs[5, 0])
+        footer_ax.axis('off')
+        
+        pdf.savefig(fig, bbox_inches='tight', pad_inches=0.1)
+        plt.close(fig)
+    
+    def _create_spacing_header(self, ax, analyzer):
+        """创建周节Header"""
+        ax.axis('off')
+        
+        gear_params = analyzer.gear_params
+        info = analyzer.reader.info if hasattr(analyzer.reader, 'info') else {}
+        
+        def fmt(val, default=""):
+            if val is None or val == "":
+                return default
+            return str(val)
+        
+        data = [
+            ['Prog.No.:', fmt(info.get('program', '')), 'Operator:', fmt(info.get('operator', '')), 'Date:', fmt(info.get('date', ''))],
+            ['Type:', fmt(info.get('type_', 'gear')), 'No. of teeth:', fmt(gear_params.teeth_count if gear_params else ''), 'Pressure angle:', fmt(gear_params.pressure_angle if gear_params else '', "{:.0f}°")],
+            ['Drawing No.:', fmt(info.get('drawing_no', '')), 'Module m:', fmt(gear_params.module if gear_params else '', "{:.2f}mm"), 'Helix angle:', fmt(gear_params.helix_angle if gear_params else '', "{:.0f}°")],
+            ['Order No.:', fmt(info.get('order_no', '')), 'Loc. of check:', fmt(info.get('location', '')), '', ''],
+            ['Cust./Mach. No.:', fmt(info.get('customer', '')), 'Condition:', fmt(info.get('condition', '')), '', '']
+        ]
+        
+        table = ax.table(cellText=data, loc='center', cellLoc='left', bbox=[0, 0, 1, 1])
+        table.auto_set_font_size(False)
+        table.set_fontsize(8)
+        
+        cells = table.get_celld()
+        for (row, col), cell in cells.items():
+            cell.set_edgecolor('black')
+            cell.set_linewidth(0.5)
+            cell.set_text_props(verticalalignment='center')
+            if col in [0, 2, 4]:
+                cell.set_text_props(weight='bold')
+    
+    def _create_spacing_charts(self, ax_fp, ax_Fp, analyzer, side):
+        """创建周节图表"""
+        pitch_data = analyzer.reader.pitch_data.get(side, {})
+        
+        if not pitch_data:
+            ax_fp.text(0.5, 0.5, 'No Data', ha='center', va='center')
+            ax_Fp.text(0.5, 0.5, 'No Data', ha='center', va='center')
+            return
+        
+        teeth = sorted(pitch_data.keys())
+        fp_values = [pitch_data[t]['fp'] for t in teeth]
+        Fp_values = [pitch_data[t]['Fp'] for t in teeth]
+        
+        # 调整Fp值
+        if Fp_values:
+            first_value = Fp_values[0]
+            Fp_values = [fp - first_value for fp in Fp_values]
+        
+        # fp柱状图
+        ax_fp.bar(teeth, fp_values, color='white', edgecolor='black', width=1.0, linewidth=0.5)
+        ax_fp.set_title(f'Tooth to tooth spacing fp {side} flank', fontsize=9, fontweight='bold', pad=2)
+        ax_fp.grid(True, linestyle=':', alpha=0.5)
+        ax_fp.set_xlim(0, len(teeth)+1)
+        ax_fp.text(0.02, 0.8, '10µm', transform=ax_fp.transAxes, fontsize=7)
+        
+        # Fp曲线图
+        ax_Fp.plot(teeth, Fp_values, 'k-', linewidth=0.8)
+        ax_Fp.set_title(f'Index Fp {side} flank', fontsize=9, fontweight='bold', pad=2)
+        ax_Fp.grid(True, linestyle=':', alpha=0.5)
+        ax_Fp.set_xlim(0, len(teeth)+1)
+        ax_Fp.text(0.02, 0.8, '10µm', transform=ax_Fp.transAxes, fontsize=7)
+        
+        ax_fp.set_xticklabels([])
+    
+    def _create_spacing_table(self, ax, analyzer):
+        """创建周节数据表格"""
+        ax.axis('off')
+        
+        col_labels = ['', 'Act.value', 'Qual.', 'Lim.value Qual.', 'Act.value', 'Qual.', 'Lim.value Qual.']
+        
+        pitch_left = analyzer.reader.pitch_data.get('left', {})
+        pitch_right = analyzer.reader.pitch_data.get('right', {})
+        
+        # 计算统计数据
+        def calc_stats(data):
+            if not data:
+                return {}
+            teeth = sorted(data.keys())
+            fp_vals = [data[t]['fp'] for t in teeth]
+            Fp_vals = [data[t]['Fp'] for t in teeth]
+            
+            fp_max = max([abs(x) for x in fp_vals]) if fp_vals else 0
+            fu_max = max([abs(fp_vals[i] - fp_vals[i-1]) for i in range(len(fp_vals))]) if len(fp_vals) > 1 else 0
+            Rp = max(fp_vals) - min(fp_vals) if fp_vals else 0
+            Fp = max(Fp_vals) - min(Fp_vals) if Fp_vals else 0
+            
+            return {'fp_max': fp_max, 'fu_max': fu_max, 'Rp': Rp, 'Fp': Fp}
+        
+        left_stats = calc_stats(pitch_left)
+        right_stats = calc_stats(pitch_right)
+        
+        rows = [
+            ['Worst single pitch deviation fp max', left_stats.get('fp_max', ''), '', '12 5', right_stats.get('fp_max', ''), '', '12 5'],
+            ['Worst spacing deviation fu max', left_stats.get('fu_max', ''), '', '', right_stats.get('fu_max', ''), '', ''],
+            ['Range of Pitch Error Rp', left_stats.get('Rp', ''), '', '', right_stats.get('Rp', ''), '', ''],
+            ['Total cum. pitch dev. Fp', left_stats.get('Fp', ''), '', '36 5', right_stats.get('Fp', ''), '', '36 5'],
+            ['Cum. pitch deviation Fp10', '', '', '', '', '', '']
+        ]
+        
+        for row in rows:
+            for i in [1, 4]:
+                if isinstance(row[i], (int, float)):
+                    row[i] = f"{row[i]:.1f}"
+        
+        table_data = [col_labels] + rows
+        table = ax.table(cellText=table_data, cellLoc='center', bbox=[0, 0, 1, 1], edges='closed')
+        table.auto_set_font_size(False)
+        table.set_fontsize(7)
+        
+        for (row, col), cell in table.get_celld().items():
+            cell.set_edgecolor('black')
+            cell.set_linewidth(0.5)
+            if row == 0:
+                cell.set_text_props(weight='bold')
+    
+    def _create_runout_chart(self, ax, analyzer):
+        """创建Runout图表"""
+        pitch_data = analyzer.reader.pitch_data.get('left', {})
+        
+        if not pitch_data:
+            ax.text(0.5, 0.5, 'No Data', ha='center', va='center')
+            return
+        
+        teeth = sorted(pitch_data.keys())
+        # 使用Fp值作为Runout数据
+        runout_values = [pitch_data[t]['Fp'] for t in teeth]
+        
+        # 绘制柱状图
+        ax.bar(teeth, runout_values, color='white', edgecolor='black', width=1.0, linewidth=0.5)
+        
+        # 绘制正弦拟合曲线
+        if len(teeth) > 2:
+            import numpy as np
+            x_smooth = np.linspace(min(teeth), max(teeth), 200)
+            # 简单的正弦拟合
+            amplitude = (max(runout_values) - min(runout_values)) / 2
+            mid = (max(runout_values) + min(runout_values)) / 2
+            period = len(teeth)
+            y_smooth = mid + amplitude * np.sin(2 * np.pi * (x_smooth - min(teeth)) / period)
+            ax.plot(x_smooth, y_smooth, 'k-', linewidth=1.0)
+        
+        ax.set_title('Runout Fr (Ball-Ø =3mm)', fontsize=10, fontweight='bold')
+        ax.grid(True, linestyle=':', alpha=0.5)
+        ax.set_xlim(0, len(teeth)+1)

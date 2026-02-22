@@ -38,6 +38,14 @@ except ImportError as e:
 # 导入本地分析器作为备用
 from ripple_waviness_analyzer import RippleWavinessAnalyzer
 
+# 导入PDF报告生成器
+try:
+    from klingelnberg_report_generator import KlingelnbergReportGenerator
+    PDF_GENERATOR_AVAILABLE = True
+except ImportError as e:
+    print(f"KlingelnbergReportGenerator import error: {e}")
+    PDF_GENERATOR_AVAILABLE = False
+
 st.set_page_config(
     page_title="齿轮测量报告系统 - 专业版",
     page_icon="⚙️",
@@ -109,44 +117,29 @@ if uploaded_file is not None:
         st.markdown("### 📋 专业报告生成")
         
         # PDF下载按钮
-        if st.button("📥 生成PDF报告"):
-            with st.spinner("正在生成PDF报告..."):
-                try:
-                    from reportlab.lib.pagesizes import A4
-                    from reportlab.pdfgen import canvas
-                    from reportlab.lib.units import mm
-                    
-                    pdf_buffer = BytesIO()
-                    c = canvas.Canvas(pdf_buffer, pagesize=A4)
-                    width, height = A4
-                    
-                    # 标题
-                    c.setFont("Helvetica-Bold", 16)
-                    c.drawString(50, height - 50, "Gear Measurement Report")
-                    
-                    # 基本信息
-                    c.setFont("Helvetica", 10)
-                    y_pos = height - 80
-                    c.drawString(50, y_pos, f"File: {uploaded_file.name}")
-                    y_pos -= 20
-                    if gear_params:
-                        c.drawString(50, y_pos, f"Module: {gear_params.module:.3f}mm")
-                        y_pos -= 20
-                        c.drawString(50, y_pos, f"Teeth: {gear_params.teeth_count}")
-                        y_pos -= 20
-                        c.drawString(50, y_pos, f"Pressure Angle: {gear_params.pressure_angle}°")
-                    
-                    c.save()
-                    pdf_buffer.seek(0)
-                    
-                    st.download_button(
-                        label="📥 下载PDF报告",
-                        data=pdf_buffer,
-                        file_name=f"gear_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                        mime="application/pdf"
-                    )
-                except Exception as e:
-                    st.error(f"生成PDF失败: {e}")
+        if PDF_GENERATOR_AVAILABLE:
+            if st.button("📥 生成完整PDF报告"):
+                with st.spinner("正在生成PDF报告，请稍候..."):
+                    try:
+                        generator = KlingelnbergReportGenerator()
+                        pdf_buffer = generator.generate_full_report(
+                            analyzer,
+                            output_filename=f"gear_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                        )
+
+                        st.download_button(
+                            label="📥 下载PDF报告",
+                            data=pdf_buffer,
+                            file_name=f"gear_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                            mime="application/pdf"
+                        )
+                        st.success("✅ PDF报告生成成功！包含2页：齿形/齿向报表、周节报表")
+                    except Exception as e:
+                        st.error(f"生成PDF失败: {e}")
+                        import traceback
+                        st.error(traceback.format_exc())
+        else:
+            st.warning("PDF生成器不可用")
         
         st.markdown("#### 基本信息")
         col1, col2 = st.columns(2)
