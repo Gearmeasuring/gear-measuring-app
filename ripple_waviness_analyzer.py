@@ -108,23 +108,28 @@ class MKAReader:
 
     def _parse_teeth_count(self, content: str) -> int:
         """解析齿数，尝试多种模式"""
+        import re
+
+        # 首先尝试从文件头部（前100行）解析
+        header_lines = '\n'.join(content.split('\n')[:100])
+
         # 模式列表 - 按优先级排序，更具体的模式在前
         patterns = [
-            # 标准德语格式 - 最具体
-            r'Zähnezahl\s*z\s*\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.:\s*(\d+)',
-            r'Zähnezahl\s*z\s*[^:]*:\s*(\d+)',
-            r'Zähnezahl[^:]*:\s*(\d+)',
-            # 兼容编码问题
-            r'Z..?hnezahl\s*z\s*[^:]*:\s*(\d+)',
-            r'Zahnenzahl\s*z\s*[^:]*:\s*(\d+)',
+            # 标准德语格式 - 最具体（匹配省略号格式）
+            r'Z[ä�]hnezahl\s*z\s*\.+:\s*(\d+)',
+            # 标准德语格式（无省略号）
+            r'Z[ä�]hnezahl\s*z\s*[^:\n]*:\s*(\d+)',
+            # 兼容各种编码问题
+            r'Z.hnezahl\s*z\s*[^:\n]*:\s*(\d+)',
+            r'Zahnenzahl\s*z\s*[^:\n]*:\s*(\d+)',
             # 英语格式
-            r'Number\s+of\s+teeth[^:]*:\s*(\d+)',
-            r'No\.\s*of\s+teeth[^:]*:\s*(\d+)',
-            r'Teeth\s+count[^:]*:\s*(\d+)',
+            r'Number\s+of\s+teeth[^:\n]*:\s*(\d+)',
+            r'No\.\s*of\s+teeth[^:\n]*:\s*(\d+)',
+            r'Teeth\s+count[^:\n]*:\s*(\d+)',
         ]
 
         for pattern in patterns:
-            match = re.search(pattern, content, re.IGNORECASE)
+            match = re.search(pattern, header_lines, re.IGNORECASE)
             if match:
                 try:
                     teeth_count = int(match.group(1))
