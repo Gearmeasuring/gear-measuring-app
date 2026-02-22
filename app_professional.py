@@ -4,6 +4,7 @@
 ================================================================================
 
 使用 gear_analysis_refactored 模块的完整功能
+支持用户注册和登录
 """
 
 import streamlit as st
@@ -44,6 +45,12 @@ rcParams['axes.unicode_minus'] = False
 # 添加当前目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# 导入用户认证模块
+from auth import (
+    init_session_state, login_page, logout, get_current_user,
+    register_user, login_user, change_password
+)
+
 # 导入 gear_analysis_refactored 模块
 try:
     from gear_analysis_refactored.models.gear_data import (
@@ -65,30 +72,53 @@ except ImportError as e:
     print(f"KlingelnbergReportGenerator import error: {e}")
     PDF_GENERATOR_AVAILABLE = False
 
+# 初始化用户认证状态
+init_session_state()
+
+# 如果用户未登录，显示登录页面
+if not st.session_state.authenticated:
+    login_page()
+    st.stop()
+
+# 用户已登录，显示主应用
 st.set_page_config(
-    page_title="齿轮测量报告系统 - 专业版",
+    page_title="Gear Measurement Report System - Professional",
     page_icon="⚙️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 with st.sidebar:
-    st.header("📁 数据上传")
-    uploaded_file = st.file_uploader(
-        "上传 MKA 文件",
-        type=['mka'],
-        help="支持 Klingenberg MKA 格式的齿轮测量数据文件"
-    )
-    
-    if uploaded_file is not None:
-        st.success(f"已加载: {uploaded_file.name}")
-    
+    # 显示用户信息
+    user = get_current_user()
+    if user:
+        st.success(f"👤 Welcome, {user['username']}!")
+        if user.get('company'):
+            st.caption(f"Company: {user['company']}")
+
     st.markdown("---")
-    st.header("📋 功能导航")
-    
+
+    # 添加登出按钮
+    if st.button("🚪 Logout", use_container_width=True):
+        logout()
+
+    st.markdown("---")
+    st.header("📁 Data Upload")
+    uploaded_file = st.file_uploader(
+        "Upload MKA File",
+        type=['mka'],
+        help="Support Klingenberg MKA format gear measurement data files"
+    )
+
+    if uploaded_file is not None:
+        st.success(f"Loaded: {uploaded_file.name}")
+
+    st.markdown("---")
+    st.header("📋 Navigation")
+
     page = st.radio(
-        "选择功能",
-        ['📄 专业报告', '📊 周节详细报表', '📈 单齿分析', '📉 合并曲线', '📊 频谱分析'],
+        "Select Function",
+        ['📄 Professional Report', '📊 Pitch Detailed Report', '📈 Single Tooth Analysis', '📉 Merged Curve', '📊 Spectrum Analysis'],
         index=0
     )
 
@@ -130,7 +160,7 @@ if uploaded_file is not None:
         gear_data_dict = None
         use_gear_analysis = False
     
-    if page == '📄 专业报告':
+    if page == '📄 Professional Report':
         st.markdown("## Gear Profile/Lead Report")
         
         st.markdown("### 📋 专业报告生成")
@@ -255,7 +285,7 @@ if uploaded_file is not None:
                 else:
                     st.warning(f"Tooth {tooth_id} has no data")
             
-    elif page == '📊 周节详细报表':
+    elif page == '📊 Pitch Detailed Report':
         st.markdown("## Gear Spacing Report - 周节详细报表")
         
         col1, col2 = st.columns(2)
@@ -533,7 +563,7 @@ if uploaded_file is not None:
             })
             st.dataframe(df_right, use_container_width=True)
 
-    elif page == '📈 单齿分析':
+    elif page == '📈 Single Tooth Analysis':
         st.markdown("## Single Tooth Analysis")
 
         selected_tooth = st.number_input("Select Tooth Number", min_value=1, max_value=200, value=1)
@@ -589,7 +619,7 @@ if uploaded_file is not None:
                     ax.grid(True, alpha=0.3)
                     st.pyplot(fig)
     
-    elif page == '📉 合并曲线':
+    elif page == '📉 Merged Curve':
         st.markdown("## Merged Curve Analysis (0-360°)")
 
         ze = gear_params.teeth_count if gear_params else 87
@@ -666,7 +696,7 @@ if uploaded_file is not None:
                 ax.grid(True, alpha=0.3)
                 st.pyplot(fig)
     
-    elif page == '📊 频谱分析':
+    elif page == '📊 Spectrum Analysis':
         st.markdown("## Spectrum Analysis")
 
         ze = gear_params.teeth_count if gear_params else 87
