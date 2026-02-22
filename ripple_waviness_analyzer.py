@@ -570,32 +570,13 @@ class RippleWavinessAnalyzer:
                         # 齿向数据处理
                         b1 = self.reader.b1  # 起评点
                         b2 = self.reader.b2  # 终评点
-                        ba = min(b1, b2)  # 默认使用评估范围
-                        be = max(b1, b2)
                         
-                        # 解析测量范围 - 改进正则表达式
-                        # 格式: "Messanfang (unten)................................ba  [mm]..:    1.15"
-                        ba_match = re.search(r'Messanfang.*?ba\s*\[mm\]\.*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
-                        if ba_match:
-                            ba = float(ba_match.group(1))
-                        be_match = re.search(r'Messende.*?be\s*\[mm\]\.*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
-                        if be_match:
-                            be = float(be_match.group(1))
+                        # 评价范围：终评点减去起评点
+                        eval_start = min(b1, b2)
+                        eval_end = max(b1, b2)
+                        eval_length = eval_end - eval_start  # 评价范围长度
                         
-                        # 提取评估范围内的数据
-                        meas_length = be - ba
-                        if meas_length > 0:
-                            start_ratio = (min(b1, b2) - ba) / meas_length
-                            end_ratio = (max(b1, b2) - ba) / meas_length
-                            
-                            n_total = len(raw_values)
-                            start_idx = max(0, int(start_ratio * n_total))
-                            end_idx = min(n_total, int(end_ratio * n_total))
-                            
-                            if end_idx - start_idx > 10:
-                                raw_values = raw_values[start_idx:end_idx]
-                        
-                        # 去除鼓形和斜率
+                        # 去除鼓形和斜率（使用全部数据）
                         corrected = self._remove_crown_and_slope(raw_values)
                         n = len(corrected)
                         
@@ -605,8 +586,6 @@ class RippleWavinessAnalyzer:
                         tooth_base_angle = tooth_index * pitch_angle_deg
                         
                         # 从起评点到终评点的测量点位置
-                        eval_start = min(b1, b2)
-                        eval_end = max(b1, b2)
                         meas_points = np.linspace(eval_start, eval_end, n)
                         
                         # 计算每个测量点的极角变化
