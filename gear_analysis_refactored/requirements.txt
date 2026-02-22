@@ -1,0 +1,20 @@
+# 齿轮分析软件 - 重构版
+# 依赖包列表
+
+# Qt GUI框架
+PyQt5>=5.15.0
+
+# 科学计算
+numpy>=1.19.0
+scipy>=1.5.0
+
+# 绘图
+matplotlib>=3.3.0
+
+# Python 3.6兼容性（Python 3.7+不需要）
+dataclasses>=0.6; python_version < '3.7'
+
+# 其他可能需要的包（根据原程序）
+# pandas>=1.1.0  # 如果需要数据分析
+# pillow>=8.0.0  # 如果需要图像处理
+
