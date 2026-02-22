@@ -268,8 +268,123 @@ if uploaded_file is not None:
                 st.metric("右齿面 Fr", f"{pitch_right.Fr:.2f} μm")
         
         st.markdown("---")
+        st.markdown("### 周节偏差图表")
+
+        # 获取pitch数据
+        pitch_data_left = analyzer.reader.pitch_data.get('left', {})
+        pitch_data_right = analyzer.reader.pitch_data.get('right', {})
+
+        # 左齿面图表
+        if pitch_data_left and 'teeth' in pitch_data_left:
+            st.subheader("左齿面周节偏差")
+            teeth_left = pitch_data_left['teeth']
+            fp_values_left = pitch_data_left['fp_values']
+            Fp_values_left = pitch_data_left['Fp_values']
+
+            # 调整Fp值（从0开始）
+            if Fp_values_left:
+                first_value = Fp_values_left[0]
+                Fp_values_adjusted = [fp - first_value for fp in Fp_values_left]
+            else:
+                Fp_values_adjusted = []
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                # fp柱状图
+                fig, ax = plt.subplots(figsize=(8, 4))
+                ax.bar(teeth_left, fp_values_left, color='white', edgecolor='black', width=1.0, linewidth=0.5)
+                ax.set_title('Tooth to tooth spacing fp left flank', fontsize=10, fontweight='bold')
+                ax.set_xlabel('齿号')
+                ax.set_ylabel('fp (μm)')
+                ax.grid(True, linestyle=':', alpha=0.5)
+                ax.set_xlim(0, len(teeth_left)+1)
+                st.pyplot(fig)
+
+            with col2:
+                # Fp曲线图
+                fig, ax = plt.subplots(figsize=(8, 4))
+                ax.plot(teeth_left, Fp_values_adjusted, 'k-', linewidth=1.0)
+                ax.set_title('Index Fp left flank', fontsize=10, fontweight='bold')
+                ax.set_xlabel('齿号')
+                ax.set_ylabel('Fp (μm)')
+                ax.grid(True, linestyle=':', alpha=0.5)
+                ax.set_xlim(0, len(teeth_left)+1)
+                st.pyplot(fig)
+
+        # 右齿面图表
+        if pitch_data_right and 'teeth' in pitch_data_right:
+            st.subheader("右齿面周节偏差")
+            teeth_right = pitch_data_right['teeth']
+            fp_values_right = pitch_data_right['fp_values']
+            Fp_values_right = pitch_data_right['Fp_values']
+
+            # 调整Fp值（从0开始）
+            if Fp_values_right:
+                first_value = Fp_values_right[0]
+                Fp_values_adjusted = [fp - first_value for fp in Fp_values_right]
+            else:
+                Fp_values_adjusted = []
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                # fp柱状图
+                fig, ax = plt.subplots(figsize=(8, 4))
+                ax.bar(teeth_right, fp_values_right, color='white', edgecolor='black', width=1.0, linewidth=0.5)
+                ax.set_title('Tooth to tooth spacing fp right flank', fontsize=10, fontweight='bold')
+                ax.set_xlabel('齿号')
+                ax.set_ylabel('fp (μm)')
+                ax.grid(True, linestyle=':', alpha=0.5)
+                ax.set_xlim(0, len(teeth_right)+1)
+                st.pyplot(fig)
+
+            with col2:
+                # Fp曲线图
+                fig, ax = plt.subplots(figsize=(8, 4))
+                ax.plot(teeth_right, Fp_values_adjusted, 'k-', linewidth=1.0)
+                ax.set_title('Index Fp right flank', fontsize=10, fontweight='bold')
+                ax.set_xlabel('齿号')
+                ax.set_ylabel('Fp (μm)')
+                ax.grid(True, linestyle=':', alpha=0.5)
+                ax.set_xlim(0, len(teeth_right)+1)
+                st.pyplot(fig)
+
+        st.markdown("---")
+        st.markdown("### Runout 径向跳动")
+
+        # Runout图表
+        if pitch_data_left and 'teeth' in pitch_data_left:
+            teeth = pitch_data_left['teeth']
+            runout_values = pitch_data_left['Fp_values']
+
+            if teeth and runout_values:
+                fig, ax = plt.subplots(figsize=(12, 5))
+
+                # 绘制柱状图
+                ax.bar(teeth, runout_values, color='white', edgecolor='black', width=1.0, linewidth=0.5, label='Runout')
+
+                # 绘制正弦拟合曲线
+                if len(teeth) > 2:
+                    import numpy as np
+                    x_smooth = np.linspace(min(teeth), max(teeth), 200)
+                    amplitude = (max(runout_values) - min(runout_values)) / 2
+                    mid = (max(runout_values) + min(runout_values)) / 2
+                    period = len(teeth)
+                    y_smooth = mid + amplitude * np.sin(2 * np.pi * (x_smooth - min(teeth)) / period)
+                    ax.plot(x_smooth, y_smooth, 'k-', linewidth=1.5, label='Sine fit')
+
+                ax.set_title('Runout Fr (Ball-Ø =3mm)', fontsize=12, fontweight='bold')
+                ax.set_xlabel('齿号')
+                ax.set_ylabel('Fr (μm)')
+                ax.grid(True, linestyle=':', alpha=0.5)
+                ax.set_xlim(0, len(teeth)+1)
+                ax.legend()
+                st.pyplot(fig)
+
+        st.markdown("---")
         st.markdown("### 周节偏差数据表")
-        
+
         # 左齿面数据表
         if pitch_left and pitch_left.teeth:
             st.subheader("左齿面周节")
@@ -279,7 +394,7 @@ if uploaded_file is not None:
                 'Fp (μm)': pitch_left.Fp_values
             })
             st.dataframe(df_left, use_container_width=True)
-        
+
         # 右齿面数据表
         if pitch_right and pitch_right.teeth:
             st.subheader("右齿面周节")
