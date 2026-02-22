@@ -638,10 +638,12 @@ class RippleWavinessAnalyzer:
                     all_angles.extend(final_angles.tolist())
                     all_values.extend(corrected.tolist())
             else:
+                # 非字典格式的数据（直接是数组）
                 if tooth_data is not None and len(tooth_data) > 5:
                     raw_values = np.array(tooth_data)
                     
                     if data_type == 'profile':
+                        # 齿形数据处理
                         d1 = self.reader.d1
                         d2 = self.reader.d2
                         da = 174.24
@@ -675,25 +677,16 @@ class RippleWavinessAnalyzer:
                             
                             if end_idx - start_idx > 10:
                                 raw_values = raw_values[start_idx:end_idx]
-                    
-                    corrected = self._remove_crown_and_slope(raw_values)
-                    n = len(corrected)
-                    
-                    tooth_index = int(tooth_id) - 1
-                    tooth_base_angle = tooth_index * pitch_angle_deg
-                    
-                    if data_type == 'profile':
-                        # 齿形数据：使用展长计算极角
-                        # 使用MKA文件中的起评点和终评点直径
-                        d1 = self.reader.d1  # 起评点直径 174.822mm
-                        d2 = self.reader.d2  # 终评点直径 180.603mm
                         
-                        # 计算起评点和终评点对应的展长
-                        # L = sqrt(r^2 - rb^2), 其中 r = d/2
-                        eval_start_radius = d1 / 2.0
-                        eval_end_radius = d2 / 2.0
+                        corrected = self._remove_crown_and_slope(raw_values)
+                        n = len(corrected)
+                        
+                        tooth_index = int(tooth_id) - 1
+                        tooth_base_angle = tooth_index * pitch_angle_deg
                         
                         # 计算展长范围
+                        eval_start_radius = d1 / 2.0
+                        eval_end_radius = d2 / 2.0
                         eval_start_spread = np.sqrt(max(0, eval_start_radius**2 - base_radius**2))
                         eval_end_spread = np.sqrt(max(0, eval_end_radius**2 - base_radius**2))
                         
@@ -712,43 +705,10 @@ class RippleWavinessAnalyzer:
                         
                         # 所有齿形都使用相同的角度计算方式
                         final_angles = tooth_base_angle + point_angles_deg
-                    else:
-                        b1 = self.reader.b1
-                        b2 = self.reader.b2
-                        ba = 0.0
-                        be = 42.0
                         
-                        ba_match = re.search(r'Messanfang[^:]*ba[^:]*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
-                        if ba_match:
-                            ba = float(ba_match.group(1))
-                        be_match = re.search(r'Messende[^:]*be[^:]*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
-                        if be_match:
-                            be = float(be_match.group(1))
-                        
-                        meas_length = be - ba
-                        if meas_length > 0:
-                            start_ratio = (min(b1, b2) - ba) / meas_length
-                            end_ratio = (max(b1, b2) - ba) / meas_length
-                            
-                            n_total = len(raw_values)
-                            start_idx = max(0, int(start_ratio * n_total))
-                            end_idx = min(n_total, int(end_ratio * n_total))
-                            
-                            if end_idx - start_idx > 10:
-                                raw_values = raw_values[start_idx:end_idx]
-                                corrected = self._remove_crown_and_slope(raw_values)
-                                n = len(corrected)
-                        
-                        z_positions = np.linspace(min(b1, b2), max(b1, b2), n)
-                        z_from_start = z_positions - min(b1, b2)
-                        
-                        rotation_angles = 2.0 * z_from_start * np.tan(np.radians(abs(helix_angle))) / pitch_diameter
-                        point_angles_deg = np.degrees(rotation_angles)
-                        
-                        final_angles = tooth_base_angle + point_angles_deg
-                    
-                    all_angles.extend(final_angles.tolist())
-                    all_values.extend(corrected.tolist())
+                        all_angles.extend(final_angles.tolist())
+                        all_values.extend(corrected.tolist())
+                    # 注意：非字典格式的齿向数据不处理，因为齿向数据通常是字典格式
         
         if not all_angles:
             return np.array([]), np.array([])
