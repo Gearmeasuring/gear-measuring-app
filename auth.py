@@ -16,7 +16,7 @@ USERS_FILE = "users.json"
 ACCESS_LOG_FILE = "access_log.json"
 
 # 默认管理员账号
-DEFAULT_ADMIN = "tonztzhou"
+DEFAULT_ADMIN = "tonyztzhou"
 
 
 def load_users() -> Dict[str, Any]:
