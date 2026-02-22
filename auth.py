@@ -1,6 +1,7 @@
 """
 用户认证模块
 支持用户注册、登录、密码管理、访问记录、会话持久化
+支持多用户并发访问
 """
 
 import streamlit as st
@@ -9,6 +10,7 @@ import secrets
 import json
 import os
 import time
+import threading
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
@@ -23,20 +25,42 @@ DEFAULT_ADMIN = "tonyztzhou"
 # 会话有效期（秒）- 7天
 SESSION_EXPIRY = 7 * 24 * 60 * 60
 
+# 文件锁，用于多线程安全
+_file_lock = threading.Lock()
+
+
+def _safe_read_json(filepath: str) -> Any:
+    """线程安全地读取JSON文件"""
+    with _file_lock:
+        if os.path.exists(filepath):
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except:
+                pass
+        return None
+
+
+def _safe_write_json(filepath: str, data: Any):
+    """线程安全地写入JSON文件"""
+    with _file_lock:
+        # 先写入临时文件，然后重命名，避免写入中断导致数据损坏
+        temp_file = filepath + '.tmp'
+        with open(temp_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        # 原子性重命名
+        os.replace(temp_file, filepath)
+
 
 def load_users() -> Dict[str, Any]:
     """加载用户数据"""
-    if os.path.exists(USERS_FILE):
-        try:
-            with open(USERS_FILE, 'r', encoding='utf-8') as f:
-                users = json.load(f)
-                # 确保默认管理员存在且角色正确
-                if DEFAULT_ADMIN in users:
-                    users[DEFAULT_ADMIN]["role"] = "admin"
-                return users
-        except:
-            return {}
-    return {}
+    users = _safe_read_json(USERS_FILE)
+    if users is None:
+        users = {}
+    # 确保默认管理员存在且角色正确
+    if DEFAULT_ADMIN in users:
+        users[DEFAULT_ADMIN]["role"] = "admin"
+    return users
 
 
 def save_users(users: Dict[str, Any]):
@@ -44,25 +68,20 @@ def save_users(users: Dict[str, Any]):
     # 确保默认管理员角色正确
     if DEFAULT_ADMIN in users:
         users[DEFAULT_ADMIN]["role"] = "admin"
-    with open(USERS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(users, f, ensure_ascii=False, indent=2)
+    _safe_write_json(USERS_FILE, users)
 
 
 def load_access_log() -> List[Dict[str, Any]]:
     """加载访问记录"""
-    if os.path.exists(ACCESS_LOG_FILE):
-        try:
-            with open(ACCESS_LOG_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            return []
-    return []
+    logs = _safe_read_json(ACCESS_LOG_FILE)
+    if logs is None:
+        return []
+    return logs
 
 
 def save_access_log(logs: List[Dict[str, Any]]):
     """保存访问记录"""
-    with open(ACCESS_LOG_FILE, 'w', encoding='utf-8') as f:
-        json.dump(logs, f, ensure_ascii=False, indent=2)
+    _safe_write_json(ACCESS_LOG_FILE, logs)
 
 
 def log_access(username: str, action: str, details: str = ""):
