@@ -504,13 +504,17 @@ class RippleWavinessAnalyzer:
                 
                 if values is not None and len(values) > 5:
                     raw_values = np.array(values)
+                    corrected = None  # 重置 corrected 变量
+                    n = 0
                     
                     if data_type == 'profile':
+                        # 齿形数据处理
                         d1 = self.reader.d1
                         d2 = self.reader.d2
                         da = 174.24
                         de = 182.775
                         
+                        # 解析测量范围
                         da_match = re.search(r'Start Messbereich[^:]*da[^:]*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
                         if da_match:
                             da = float(da_match.group(1))
@@ -518,6 +522,7 @@ class RippleWavinessAnalyzer:
                         if de_match:
                             de = float(de_match.group(1))
                         
+                        # 计算展长范围
                         meas_start_radius = da / 2.0
                         meas_end_radius = de / 2.0
                         eval_start_radius = d1 / 2.0
@@ -539,59 +544,31 @@ class RippleWavinessAnalyzer:
                             
                             if end_idx - start_idx > 10:
                                 raw_values = raw_values[start_idx:end_idx]
-                                # 重新计算校正后的值和数据长度
-                                corrected = self._remove_crown_and_slope(raw_values)
-                                n = len(corrected)
-                    
-                    # 如果上面没有重新计算，在这里计算
-                    if 'corrected' not in locals() or len(corrected) != len(raw_values):
+                        
+                        # 去除鼓形和斜率
                         corrected = self._remove_crown_and_slope(raw_values)
                         n = len(corrected)
-                    
-                    tooth_index = int(tooth_id) - 1
-                    tooth_base_angle = tooth_index * pitch_angle_deg
-                    
-                    if data_type == 'profile':
-                        # 齿形数据：使用展长计算极角
-                        # 使用MKA文件中的起评点和终评点直径
-                        d1 = self.reader.d1  # 起评点直径 174.822mm
-                        d2 = self.reader.d2  # 终评点直径 180.603mm
                         
-                        # 计算起评点和终评点对应的展长
-                        # L = sqrt(r^2 - rb^2), 其中 r = d/2
-                        eval_start_radius = d1 / 2.0
-                        eval_end_radius = d2 / 2.0
+                        # 计算角度
+                        tooth_index = int(tooth_id) - 1
+                        tooth_base_angle = tooth_index * pitch_angle_deg
                         
-                        # 计算展长范围
-                        eval_start_spread = np.sqrt(max(0, eval_start_radius**2 - base_radius**2))
-                        eval_end_spread = np.sqrt(max(0, eval_end_radius**2 - base_radius**2))
-                        
-                        # 展长从起评点到终评点
+                        # 使用展长计算极角
                         spread_lengths = np.linspace(eval_start_spread, eval_end_spread, n)
-                        
-                        # 根据展长计算半径: r = sqrt(L^2 + rb^2)
                         radii = np.sqrt(spread_lengths ** 2 + base_radius ** 2)
-                        
-                        # 计算极角
                         polar_angles = np.array([self._calculate_involute_polar_angle(r, base_radius) for r in radii])
-                        
-                        # 起评点的极角为0
                         start_polar_angle = polar_angles[0]
                         point_angles_deg = np.degrees(polar_angles - start_polar_angle)
+                        final_angles = tooth_base_angle + point_angles_deg
                         
-                        if side == 'right':
-                            final_angles = tooth_base_angle + point_angles_deg
-                        else:
-                            # 左齿形：使用与右齿形相同的角度分配逻辑
-                            final_angles = tooth_base_angle + point_angles_deg
+                        all_angles.extend(final_angles.tolist())
+                        all_values.extend(corrected.tolist())
                     else:
-                        # 齿向(lead)数据处理
-                        b1 = self.reader.b1  # 评估起始位置
-                        b2 = self.reader.b2  # 评估结束位置
-                        
-                        # 从原始数据中获取测量范围
-                        ba = 0.0  # 测量起始
-                        be = 42.0  # 测量结束
+                        # 齿向数据处理
+                        b1 = self.reader.b1
+                        b2 = self.reader.b2
+                        ba = 0.0
+                        be = 42.0
                         
                         ba_match = re.search(r'Messanfang[^:]*ba[^:]*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
                         if ba_match:
@@ -612,31 +589,20 @@ class RippleWavinessAnalyzer:
                             
                             if end_idx - start_idx > 10:
                                 raw_values = raw_values[start_idx:end_idx]
-                                corrected = self._remove_crown_and_slope(raw_values)
-                                n = len(corrected)
                         
-                        # 齿向数据的角度映射：
-                        # 齿向偏差沿齿宽方向，需要映射到旋转角度
-                        # 每个齿占据 360°/齿数 的角度范围
-                        # 齿向数据在齿宽方向上的变化对应于这个角度范围内的小变化
+                        # 去除鼓形和斜率
+                        corrected = self._remove_crown_and_slope(raw_values)
+                        n = len(corrected)
                         
-                        # 计算齿向数据在齿宽方向上的位置
-                        eval_width = abs(b2 - b1)
-                        z_positions = np.linspace(0, eval_width, n)
-                        
-                        # 齿向偏差对应的角度变化：
-                        # 由于螺旋角的存在，齿宽方向的变化会导致旋转方向的变化
-                        # 但齿向偏差本身是沿齿宽方向的直线测量，应该均匀分布在齿的角度范围内
+                        # 计算角度
+                        tooth_index = int(tooth_id) - 1
+                        tooth_base_angle = tooth_index * pitch_angle_deg
                         pitch_angle = 360.0 / teeth_count
-                        
-                        # 齿向数据点均匀分布在齿的角度范围内（略小于一个齿距，避免重叠）
-                        # 使用 0.9 * pitch_angle 确保数据点不会超出当前齿的角度范围
                         point_angles_within_tooth = np.linspace(0, pitch_angle * 0.9, n)
-                        
                         final_angles = tooth_base_angle + point_angles_within_tooth
-                    
-                    all_angles.extend(final_angles.tolist())
-                    all_values.extend(corrected.tolist())
+                        
+                        all_angles.extend(final_angles.tolist())
+                        all_values.extend(corrected.tolist())
             else:
                 # 非字典格式的数据（直接是数组）
                 if tooth_data is not None and len(tooth_data) > 5:
