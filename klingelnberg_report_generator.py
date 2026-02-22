@@ -23,6 +23,110 @@ class KlingelnbergReportGenerator:
         plt.rcParams['ps.fonttype'] = 42
         plt.rcParams['font.sans-serif'] = ['Arial', 'DejaVu Sans', 'SimHei']
     
+    def _calculate_profile_deviations(self, values):
+        """计算齿形偏差: F_alpha, fH_alpha, ff_alpha"""
+        try:
+            if not values or len(values) == 0:
+                return 0.0, 0.0, 0.0
+            
+            data = np.array(values)
+            
+            # 使用评价区间 (15% - 85%)
+            n = len(data)
+            start_idx = int(n * 0.15)
+            end_idx = int(n * 0.85)
+            eval_data = data[start_idx:end_idx]
+            
+            if len(eval_data) == 0:
+                return 0.0, 0.0, 0.0
+            
+            # 总偏差 F_alpha（峰峰值）
+            F_alpha = np.max(eval_data) - np.min(eval_data)
+            
+            # 斜率偏差 fH_alpha（最小二乘拟合趋势线的差值）
+            x = np.arange(len(eval_data))
+            coeffs = np.polyfit(x, eval_data, 1)
+            trend_line = coeffs[0] * x + coeffs[1]
+            fH_alpha = trend_line[-1] - trend_line[0]
+            
+            # 形状偏差 ff_alpha（去除趋势后的残余分量峰峰值）
+            residuals = eval_data - trend_line
+            ff_alpha = np.max(residuals) - np.min(residuals)
+            
+            return F_alpha, fH_alpha, ff_alpha
+            
+        except Exception as e:
+            print(f"齿形偏差计算错误: {e}")
+            return 0.0, 0.0, 0.0
+    
+    def _calculate_lead_deviations(self, values):
+        """计算齿向偏差: F_beta, fH_beta, ff_beta"""
+        try:
+            if not values or len(values) == 0:
+                return 0.0, 0.0, 0.0
+            
+            data = np.array(values)
+            
+            # 使用评价区间 (15% - 85%)
+            n = len(data)
+            start_idx = int(n * 0.15)
+            end_idx = int(n * 0.85)
+            eval_data = data[start_idx:end_idx]
+            
+            if len(eval_data) == 0:
+                return 0.0, 0.0, 0.0
+            
+            # 总偏差 F_beta（峰峰值）
+            F_beta = np.max(eval_data) - np.min(eval_data)
+            
+            # 斜率偏差 fH_beta（最小二乘拟合趋势线的差值）
+            x = np.arange(len(eval_data))
+            coeffs = np.polyfit(x, eval_data, 1)
+            trend_line = coeffs[0] * x + coeffs[1]
+            fH_beta = trend_line[-1] - trend_line[0]
+            
+            # 形状偏差 ff_beta（去除趋势后的残余分量峰峰值）
+            residuals = eval_data - trend_line
+            ff_beta = np.max(residuals) - np.min(residuals)
+            
+            return F_beta, fH_beta, ff_beta
+            
+        except Exception as e:
+            print(f"齿向偏差计算错误: {e}")
+            return 0.0, 0.0, 0.0
+    
+    def _calculate_crowning(self, values):
+        """计算鼓形量 C_alpha 或 C_beta"""
+        try:
+            if not values or len(values) == 0:
+                return 0.0
+            
+            data = np.array(values)
+            
+            # 使用评价区间 (15% - 85%)
+            n = len(data)
+            start_idx = int(n * 0.15)
+            end_idx = int(n * 0.85)
+            eval_data = data[start_idx:end_idx]
+            
+            if len(eval_data) < 3:
+                return 0.0
+            
+            # 拟合抛物线 y = ax^2 + bx + c
+            x = np.arange(len(eval_data))
+            coeffs = np.polyfit(x, eval_data, 2)
+            a = coeffs[0]
+            
+            # 计算鼓形量: C = -a * L^2 / 4
+            L = len(eval_data)
+            crowning = -a * (L ** 2) / 4
+            
+            return crowning
+            
+        except Exception as e:
+            print(f"鼓形量计算错误: {e}")
+            return 0.0
+    
     def generate_full_report(self, analyzer, output_filename="gear_report.pdf"):
         """生成完整报告"""
         buffer = io.BytesIO()
@@ -294,7 +398,7 @@ class KlingelnbergReportGenerator:
         ax.plot(x_center + scale_width/2 + 0.05, y_center, 'k<', markersize=2, zorder=22, clip_on=False)
     
     def _create_profile_table(self, ax, analyzer, teeth_chunk):
-        """创建齿形数据表格 - 只显示指定齿号"""
+        """创建齿形数据表格 - 只显示指定齿号，包含实际计算数据"""
         ax.axis('off')
         
         # 获取当前页的齿号
@@ -318,21 +422,125 @@ class KlingelnbergReportGenerator:
         right_headers = [str(t) for t in right_teeth]
         headers = [''] + left_headers + ['Lim.value Qual.', 'Lim.value Qual.'] + right_headers
         
-        # 数据行（示例数据）
-        params = ['fHam', 'fHa', 'fa', 'ffa', 'Ca']
+        # 计算每个齿的偏差值
+        def get_tooth_values(tooth_data, tooth_num):
+            """获取指定齿号的测量值"""
+            if tooth_num not in tooth_data:
+                return []
+            values_dict = tooth_data[tooth_num]
+            if isinstance(values_dict, dict):
+                return list(values_dict.values())[0] if values_dict else []
+            return values_dict
+        
+        # 为每个齿计算偏差
+        left_deviations = {}
+        for t in left_teeth:
+            values = get_tooth_values(left_all, t)
+            if values:
+                F_alpha, fH_alpha, ff_alpha = self._calculate_profile_deviations(values)
+                Ca = self._calculate_crowning(values)
+                left_deviations[t] = {
+                    'fHa': fH_alpha,
+                    'fa': F_alpha,
+                    'ffa': ff_alpha,
+                    'Ca': Ca
+                }
+        
+        right_deviations = {}
+        for t in right_teeth:
+            values = get_tooth_values(right_all, t)
+            if values:
+                F_alpha, fH_alpha, ff_alpha = self._calculate_profile_deviations(values)
+                Ca = self._calculate_crowning(values)
+                right_deviations[t] = {
+                    'fHa': fH_alpha,
+                    'fa': F_alpha,
+                    'ffa': ff_alpha,
+                    'Ca': Ca
+                }
+        
+        # 计算平均值和变异
+        def calc_avg_and_var(deviations, key, teeth):
+            vals = [deviations[t][key] for t in teeth if t in deviations]
+            if vals:
+                avg = sum(vals) / len(vals)
+                var = max(vals) - min(vals)
+                return avg, var
+            return 0, 0
+        
+        # 数据行
         rows_data = []
         
-        for param in params:
-            row = [param]
-            # 左侧数据
-            for t in left_teeth:
-                row.append('')
-            row.append('±11 5')  # Lim.value Qual.
-            row.append('±11 5')  # Lim.value Qual.
-            # 右侧数据
-            for t in right_teeth:
-                row.append('')
-            rows_data.append(row)
+        # fHam - fHa的平均值和变异
+        left_fHa_avg, left_fHa_var = calc_avg_and_var(left_deviations, 'fHa', left_teeth)
+        right_fHa_avg, right_fHa_var = calc_avg_and_var(right_deviations, 'fHa', right_teeth)
+        
+        row = ['fHam']
+        for i, t in enumerate(left_teeth):
+            if i == 0:
+                row.append(f"{left_fHa_avg:.1f}" if left_fHa_avg != 0 else "")
+            elif i == 1:
+                row.append(f"V {left_fHa_var:.1f}" if left_fHa_var != 0 else "")
+            else:
+                row.append("")
+        row.append('±11 5')
+        row.append('±11 5')
+        for i, t in enumerate(right_teeth):
+            if i == 0:
+                row.append(f"{right_fHa_avg:.1f}" if right_fHa_avg != 0 else "")
+            elif i == 1:
+                row.append(f"V {right_fHa_var:.1f}" if right_fHa_var != 0 else "")
+            else:
+                row.append("")
+        rows_data.append(row)
+        
+        # fHa - 每个齿的斜率偏差
+        row = ['fHa']
+        for t in left_teeth:
+            val = left_deviations.get(t, {}).get('fHa', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        row.append('±11 5')
+        row.append('±11 5')
+        for t in right_teeth:
+            val = right_deviations.get(t, {}).get('fHa', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        rows_data.append(row)
+        
+        # fa - 每个齿的总偏差
+        row = ['fa']
+        for t in left_teeth:
+            val = left_deviations.get(t, {}).get('fa', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        row.append('11 5')
+        row.append('11 5')
+        for t in right_teeth:
+            val = right_deviations.get(t, {}).get('fa', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        rows_data.append(row)
+        
+        # ffa - 每个齿的形状偏差
+        row = ['ffa']
+        for t in left_teeth:
+            val = left_deviations.get(t, {}).get('ffa', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        row.append('5 5')
+        row.append('5 5')
+        for t in right_teeth:
+            val = right_deviations.get(t, {}).get('ffa', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        rows_data.append(row)
+        
+        # Ca - 每个齿的鼓形量
+        row = ['Ca']
+        for t in left_teeth:
+            val = left_deviations.get(t, {}).get('Ca', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        row.append('')
+        row.append('')
+        for t in right_teeth:
+            val = right_deviations.get(t, {}).get('Ca', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        rows_data.append(row)
         
         # 创建表格
         table_data = [headers] + rows_data
@@ -440,41 +648,148 @@ class KlingelnbergReportGenerator:
         ax.tick_params(axis='y', labelsize=7)
     
     def _create_lead_table(self, ax, analyzer, teeth_chunk):
-        """创建齿向数据表格 - 只显示指定齿号"""
+        """创建齿向数据表格 - 只显示指定齿号，包含实际计算数据"""
         ax.axis('off')
-        
+
         left_all = analyzer.reader.helix_data.get('left', {})
         right_all = analyzer.reader.helix_data.get('right', {})
-        
+
         left_teeth = [t for t in teeth_chunk if t in left_all]
         right_teeth = [t for t in teeth_chunk if t in right_all]
-        
+
         # 根据左右齿面确定齿号排列顺序
         left_teeth = sorted(left_teeth, reverse=True)  # 左侧降序
         right_teeth = sorted(right_teeth)  # 右侧升序
-        
+
         if not left_teeth:
             left_teeth = list(teeth_chunk[:3])
         if not right_teeth:
             right_teeth = list(teeth_chunk[:3])
-        
+
         left_headers = [str(t) for t in left_teeth]
         right_headers = [str(t) for t in right_teeth]
         headers = [''] + left_headers + ['Lim.value Qual.', 'Lim.value Qual.'] + right_headers
-        
-        params = ['fHbm', 'fHb', 'fb', 'ffb', 'Cb']
+
+        # 计算每个齿的偏差值
+        def get_tooth_values(tooth_data, tooth_num):
+            """获取指定齿号的测量值"""
+            if tooth_num not in tooth_data:
+                return []
+            values_dict = tooth_data[tooth_num]
+            if isinstance(values_dict, dict):
+                return list(values_dict.values())[0] if values_dict else []
+            return values_dict
+
+        # 为每个齿计算偏差
+        left_deviations = {}
+        for t in left_teeth:
+            values = get_tooth_values(left_all, t)
+            if values:
+                F_beta, fH_beta, ff_beta = self._calculate_lead_deviations(values)
+                Cb = self._calculate_crowning(values)
+                left_deviations[t] = {
+                    'fHb': fH_beta,
+                    'fb': F_beta,
+                    'ffb': ff_beta,
+                    'Cb': Cb
+                }
+
+        right_deviations = {}
+        for t in right_teeth:
+            values = get_tooth_values(right_all, t)
+            if values:
+                F_beta, fH_beta, ff_beta = self._calculate_lead_deviations(values)
+                Cb = self._calculate_crowning(values)
+                right_deviations[t] = {
+                    'fHb': fH_beta,
+                    'fb': F_beta,
+                    'ffb': ff_beta,
+                    'Cb': Cb
+                }
+
+        # 计算平均值和变异
+        def calc_avg_and_var(deviations, key, teeth):
+            vals = [deviations[t][key] for t in teeth if t in deviations]
+            if vals:
+                avg = sum(vals) / len(vals)
+                var = max(vals) - min(vals)
+                return avg, var
+            return 0, 0
+
+        # 数据行
         rows_data = []
-        
-        for param in params:
-            row = [param]
-            for t in left_teeth:
-                row.append('')
-            row.append('±8 5')
-            row.append('±8 5')
-            for t in right_teeth:
-                row.append('')
-            rows_data.append(row)
-        
+
+        # fHbm - fHb的平均值和变异
+        left_fHb_avg, left_fHb_var = calc_avg_and_var(left_deviations, 'fHb', left_teeth)
+        right_fHb_avg, right_fHb_var = calc_avg_and_var(right_deviations, 'fHb', right_teeth)
+
+        row = ['fHbm']
+        for i, t in enumerate(left_teeth):
+            if i == 0:
+                row.append(f"{left_fHb_avg:.1f}" if left_fHb_avg != 0 else "")
+            elif i == 1:
+                row.append(f"V {left_fHb_var:.1f}" if left_fHb_var != 0 else "")
+            else:
+                row.append("")
+        row.append('±8 5')
+        row.append('±8 5')
+        for i, t in enumerate(right_teeth):
+            if i == 0:
+                row.append(f"{right_fHb_avg:.1f}" if right_fHb_avg != 0 else "")
+            elif i == 1:
+                row.append(f"V {right_fHb_var:.1f}" if right_fHb_var != 0 else "")
+            else:
+                row.append("")
+        rows_data.append(row)
+
+        # fHb - 每个齿的斜率偏差
+        row = ['fHb']
+        for t in left_teeth:
+            val = left_deviations.get(t, {}).get('fHb', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        row.append('±8 5')
+        row.append('±8 5')
+        for t in right_teeth:
+            val = right_deviations.get(t, {}).get('fHb', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        rows_data.append(row)
+
+        # fb - 每个齿的总偏差
+        row = ['fb']
+        for t in left_teeth:
+            val = left_deviations.get(t, {}).get('fb', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        row.append('8 5')
+        row.append('8 5')
+        for t in right_teeth:
+            val = right_deviations.get(t, {}).get('fb', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        rows_data.append(row)
+
+        # ffb - 每个齿的形状偏差
+        row = ['ffb']
+        for t in left_teeth:
+            val = left_deviations.get(t, {}).get('ffb', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        row.append('4 5')
+        row.append('4 5')
+        for t in right_teeth:
+            val = right_deviations.get(t, {}).get('ffb', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        rows_data.append(row)
+
+        # Cb - 每个齿的鼓形量
+        row = ['Cb']
+        for t in left_teeth:
+            val = left_deviations.get(t, {}).get('Cb', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        row.append('')
+        row.append('')
+        for t in right_teeth:
+            val = right_deviations.get(t, {}).get('Cb', 0)
+            row.append(f"{val:.1f}" if val != 0 else "")
+        rows_data.append(row)
+
         table_data = [headers] + rows_data
         table = ax.table(cellText=table_data, cellLoc='center', bbox=[0, 0, 1, 1], edges='closed')
         table.auto_set_font_size(False)
