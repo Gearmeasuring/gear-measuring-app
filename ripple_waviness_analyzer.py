@@ -549,17 +549,14 @@ class RippleWavinessAnalyzer:
                         corrected = self._remove_crown_and_slope(raw_values)
                         n = len(corrected)
                         
-                        # 计算角度
+                        # 计算角度 - 简化版本：每个齿的数据均匀分布在齿的角度范围内
                         tooth_index = int(tooth_id) - 1
                         tooth_base_angle = tooth_index * pitch_angle_deg
                         
-                        # 使用展长计算极角
-                        spread_lengths = np.linspace(eval_start_spread, eval_end_spread, n)
-                        radii = np.sqrt(spread_lengths ** 2 + base_radius ** 2)
-                        polar_angles = np.array([self._calculate_involute_polar_angle(r, base_radius) for r in radii])
-                        start_polar_angle = polar_angles[0]
-                        point_angles_deg = np.degrees(polar_angles - start_polar_angle)
-                        final_angles = tooth_base_angle + point_angles_deg
+                        # 每个齿的数据点均匀分布在该齿的角度范围内
+                        # 使用 0.95 * pitch_angle_deg 避免相邻齿数据重叠
+                        point_angles_within_tooth = np.linspace(0, pitch_angle_deg * 0.95, n)
+                        final_angles = tooth_base_angle + point_angles_within_tooth
                         
                         all_angles.extend(final_angles.tolist())
                         all_values.extend(corrected.tolist())
@@ -647,30 +644,13 @@ class RippleWavinessAnalyzer:
                         corrected = self._remove_crown_and_slope(raw_values)
                         n = len(corrected)
                         
+                        # 计算角度 - 简化版本
                         tooth_index = int(tooth_id) - 1
                         tooth_base_angle = tooth_index * pitch_angle_deg
                         
-                        # 计算展长范围
-                        eval_start_radius = d1 / 2.0
-                        eval_end_radius = d2 / 2.0
-                        eval_start_spread = np.sqrt(max(0, eval_start_radius**2 - base_radius**2))
-                        eval_end_spread = np.sqrt(max(0, eval_end_radius**2 - base_radius**2))
-                        
-                        # 展长从起评点到终评点
-                        spread_lengths = np.linspace(eval_start_spread, eval_end_spread, n)
-                        
-                        # 根据展长计算半径: r = sqrt(L^2 + rb^2)
-                        radii = np.sqrt(spread_lengths ** 2 + base_radius ** 2)
-                        
-                        # 计算极角
-                        polar_angles = np.array([self._calculate_involute_polar_angle(r, base_radius) for r in radii])
-                        
-                        # 起评点的极角为0
-                        start_polar_angle = polar_angles[0]
-                        point_angles_deg = np.degrees(polar_angles - start_polar_angle)
-                        
-                        # 所有齿形都使用相同的角度计算方式
-                        final_angles = tooth_base_angle + point_angles_deg
+                        # 每个齿的数据点均匀分布在该齿的角度范围内
+                        point_angles_within_tooth = np.linspace(0, pitch_angle_deg * 0.95, n)
+                        final_angles = tooth_base_angle + point_angles_within_tooth
                         
                         all_angles.extend(final_angles.tolist())
                         all_values.extend(corrected.tolist())
