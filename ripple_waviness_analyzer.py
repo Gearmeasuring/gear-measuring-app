@@ -580,10 +580,13 @@ class RippleWavinessAnalyzer:
                             # 左齿形：使用与右齿形相同的角度分配逻辑
                             final_angles = tooth_base_angle + point_angles_deg
                     else:
-                        b1 = self.reader.b1
-                        b2 = self.reader.b2
-                        ba = 0.0
-                        be = 42.0
+                        # 齿向(lead)数据处理
+                        b1 = self.reader.b1  # 评估起始位置
+                        b2 = self.reader.b2  # 评估结束位置
+                        
+                        # 从原始数据中获取测量范围
+                        ba = 0.0  # 测量起始
+                        be = 42.0  # 测量结束
                         
                         ba_match = re.search(r'Messanfang[^:]*ba[^:]*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
                         if ba_match:
@@ -592,6 +595,7 @@ class RippleWavinessAnalyzer:
                         if be_match:
                             be = float(be_match.group(1))
                         
+                        # 提取评估范围内的数据
                         meas_length = be - ba
                         if meas_length > 0:
                             start_ratio = (min(b1, b2) - ba) / meas_length
@@ -606,13 +610,25 @@ class RippleWavinessAnalyzer:
                                 corrected = self._remove_crown_and_slope(raw_values)
                                 n = len(corrected)
                         
-                        z_positions = np.linspace(min(b1, b2), max(b1, b2), n)
-                        z_from_start = z_positions - min(b1, b2)
+                        # 齿向数据的角度映射：
+                        # 齿向偏差沿齿宽方向，需要映射到旋转角度
+                        # 每个齿占据 360°/齿数 的角度范围
+                        # 齿向数据在齿宽方向上的变化对应于这个角度范围内的小变化
                         
-                        rotation_angles = 2.0 * z_from_start * np.tan(np.radians(abs(helix_angle))) / pitch_diameter
-                        point_angles_deg = np.degrees(rotation_angles)
+                        # 计算齿向数据在齿宽方向上的位置
+                        eval_width = abs(b2 - b1)
+                        z_positions = np.linspace(0, eval_width, n)
                         
-                        final_angles = tooth_base_angle + point_angles_deg
+                        # 齿向偏差对应的角度变化：
+                        # 由于螺旋角的存在，齿宽方向的变化会导致旋转方向的变化
+                        # 但齿向偏差本身是沿齿宽方向的直线测量，应该均匀分布在齿的角度范围内
+                        pitch_angle = 360.0 / teeth_count
+                        
+                        # 齿向数据点均匀分布在齿的角度范围内（略小于一个齿距，避免重叠）
+                        # 使用 0.9 * pitch_angle 确保数据点不会超出当前齿的角度范围
+                        point_angles_within_tooth = np.linspace(0, pitch_angle * 0.9, n)
+                        
+                        final_angles = tooth_base_angle + point_angles_within_tooth
                     
                     all_angles.extend(final_angles.tolist())
                     all_values.extend(corrected.tolist())
