@@ -511,14 +511,15 @@ class RippleWavinessAnalyzer:
                         # 齿形数据处理
                         d1 = self.reader.d1
                         d2 = self.reader.d2
-                        da = 174.24
-                        de = 182.775
+                        da = d1  # 默认使用评估范围
+                        de = d2
                         
-                        # 解析测量范围
-                        da_match = re.search(r'Start Messbereich[^:]*da[^:]*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
+                        # 解析测量范围 - 改进正则表达式
+                        # 格式: "Start Messbereich.................................da  [mm]..:   49.626"
+                        da_match = re.search(r'Start\s+Messbereich.*?da\s*\[mm\]\.*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
                         if da_match:
                             da = float(da_match.group(1))
-                        de_match = re.search(r'Ende der Messstrecke[^:]*de[^:]*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
+                        de_match = re.search(r'Ende\s+der\s+Messstrecke.*?de\s*\[mm\]\.*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
                         if de_match:
                             de = float(de_match.group(1))
                         
@@ -549,14 +550,17 @@ class RippleWavinessAnalyzer:
                         corrected = self._remove_crown_and_slope(raw_values)
                         n = len(corrected)
                         
-                        # 计算角度 - 简化版本：每个齿的数据均匀分布在齿的角度范围内
+                        # 计算角度 - 使用渐开线极角
                         tooth_index = int(tooth_id) - 1
                         tooth_base_angle = tooth_index * pitch_angle_deg
                         
-                        # 每个齿的数据点均匀分布在该齿的角度范围内
-                        # 使用 0.95 * pitch_angle_deg 避免相邻齿数据重叠
-                        point_angles_within_tooth = np.linspace(0, pitch_angle_deg * 0.95, n)
-                        final_angles = tooth_base_angle + point_angles_within_tooth
+                        # 使用展长计算极角
+                        spread_lengths = np.linspace(eval_start_spread, eval_end_spread, n)
+                        radii = np.sqrt(spread_lengths ** 2 + base_radius ** 2)
+                        polar_angles = np.array([self._calculate_involute_polar_angle(r, base_radius) for r in radii])
+                        start_polar_angle = polar_angles[0]
+                        point_angles_deg = np.degrees(polar_angles - start_polar_angle)
+                        final_angles = tooth_base_angle + point_angles_deg
                         
                         all_angles.extend(final_angles.tolist())
                         all_values.extend(corrected.tolist())
@@ -609,13 +613,14 @@ class RippleWavinessAnalyzer:
                         # 齿形数据处理
                         d1 = self.reader.d1
                         d2 = self.reader.d2
-                        da = 174.24
-                        de = 182.775
+                        da = d1  # 默认使用评估范围
+                        de = d2
                         
-                        da_match = re.search(r'Start Messbereich[^:]*da[^:]*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
+                        # 解析测量范围 - 改进正则表达式
+                        da_match = re.search(r'Start\s+Messbereich.*?da\s*\[mm\]\.*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
                         if da_match:
                             da = float(da_match.group(1))
-                        de_match = re.search(r'Ende der Messstrecke[^:]*de[^:]*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
+                        de_match = re.search(r'Ende\s+der\s+Messstrecke.*?de\s*\[mm\]\.*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
                         if de_match:
                             de = float(de_match.group(1))
                         
@@ -644,13 +649,23 @@ class RippleWavinessAnalyzer:
                         corrected = self._remove_crown_and_slope(raw_values)
                         n = len(corrected)
                         
-                        # 计算角度 - 简化版本
+                        # 计算角度 - 使用渐开线极角
                         tooth_index = int(tooth_id) - 1
                         tooth_base_angle = tooth_index * pitch_angle_deg
                         
-                        # 每个齿的数据点均匀分布在该齿的角度范围内
-                        point_angles_within_tooth = np.linspace(0, pitch_angle_deg * 0.95, n)
-                        final_angles = tooth_base_angle + point_angles_within_tooth
+                        # 计算展长范围
+                        eval_start_radius = d1 / 2.0
+                        eval_end_radius = d2 / 2.0
+                        eval_start_spread = np.sqrt(max(0, eval_start_radius**2 - base_radius**2))
+                        eval_end_spread = np.sqrt(max(0, eval_end_radius**2 - base_radius**2))
+                        
+                        # 使用展长计算极角
+                        spread_lengths = np.linspace(eval_start_spread, eval_end_spread, n)
+                        radii = np.sqrt(spread_lengths ** 2 + base_radius ** 2)
+                        polar_angles = np.array([self._calculate_involute_polar_angle(r, base_radius) for r in radii])
+                        start_polar_angle = polar_angles[0]
+                        point_angles_deg = np.degrees(polar_angles - start_polar_angle)
+                        final_angles = tooth_base_angle + point_angles_deg
                         
                         all_angles.extend(final_angles.tolist())
                         all_values.extend(corrected.tolist())
