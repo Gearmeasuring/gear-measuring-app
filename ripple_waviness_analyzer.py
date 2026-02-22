@@ -194,11 +194,11 @@ class MKAReader:
         if beta_match:
             helix_angle = float(beta_match.group(1))
 
-        d1_match = re.search(r'Auswertestrecke\s*.*?d1.*?:\s*([\d.]+)', content, re.IGNORECASE)
+        d1_match = re.search(r'Start\s+der\s+Auswertestrecke.*?d1\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
         if d1_match:
             self.d1 = float(d1_match.group(1))
-
-        d2_match = re.search(r'Auswertestrecke\s*.*?d2.*?:\s*([\d.]+)', content, re.IGNORECASE)
+        
+        d2_match = re.search(r'Ende\s+der\s+Auswertestrecke.*?d2\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
         if d2_match:
             self.d2 = float(d2_match.group(1))
 
