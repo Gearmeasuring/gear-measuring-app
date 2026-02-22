@@ -114,14 +114,13 @@ class MKAReader:
         header_lines = '\n'.join(content.split('\n')[:100])
 
         # 模式列表 - 按优先级排序，更具体的模式在前
+        # 使用原始字节匹配来避免编码问题
         patterns = [
-            # 标准德语格式 - 最具体（匹配省略号格式）
-            r'Z[ä�]hnezahl\s*z\s*\.+:\s*(\d+)',
-            # 标准德语格式（无省略号）
-            r'Z[ä�]hnezahl\s*z\s*[^:\n]*:\s*(\d+)',
-            # 兼容各种编码问题
+            # 匹配 Z�hnezahl 或 Zähnezahl (使用 . 匹配任意字符)
+            r'Z.hnezahl\s*z\s*\.+:\s*(\d+)',
             r'Z.hnezahl\s*z\s*[^:\n]*:\s*(\d+)',
-            r'Zahnenzahl\s*z\s*[^:\n]*:\s*(\d+)',
+            # 备选：直接匹配行模式
+            r':Z[^:]*hnezahl[^:]*:\s*(\d+)',
             # 英语格式
             r'Number\s+of\s+teeth[^:\n]*:\s*(\d+)',
             r'No\.\s*of\s+teeth[^:\n]*:\s*(\d+)',
