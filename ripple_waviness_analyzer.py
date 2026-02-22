@@ -105,7 +105,58 @@ class MKAReader:
             import traceback
             traceback.print_exc()
             return False
-    
+
+    def _parse_teeth_count(self, content: str) -> int:
+        """解析齿数，尝试多种模式"""
+        # 模式1: 标准德语格式 Zähnezahl z
+        patterns = [
+            r'Zähnezahl\s*z\s*\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.:\s*(\d+)',
+            r'Zähnezahl\s*z\s*.*?:\s*(\d+)',
+            r'Z..?hnezahl\s*z\s*.*?:\s*(\d+)',
+            r'Zahnenzahl\s*z\s*.*?:\s*(\d+)',
+            r'Number\s+of\s+teeth\s*.*?:\s*(\d+)',
+            r'No\.\s*of\s+teeth\s*.*?:\s*(\d+)',
+            r'Teeth\s+count\s*.*?:\s*(\d+)',
+            r'z\s*=\s*(\d+)',
+            r'Z\s*=\s*(\d+)',
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, content, re.IGNORECASE)
+            if match:
+                try:
+                    teeth_count = int(match.group(1))
+                    print(f"解析到齿数: {teeth_count} (模式: {pattern[:30]}...)")
+                    return teeth_count
+                except:
+                    continue
+
+        # 如果都没匹配到，尝试从数据部分推断
+        try:
+            # 尝试从齿形数据或齿向数据中推断齿数
+            if hasattr(self, 'profile_data') and self.profile_data:
+                for side in ['left', 'right']:
+                    if side in self.profile_data and self.profile_data[side]:
+                        teeth = list(self.profile_data[side].keys())
+                        if teeth:
+                            max_tooth = max(teeth)
+                            print(f"从齿形数据推断齿数: {max_tooth}")
+                            return max_tooth
+
+            if hasattr(self, 'helix_data') and self.helix_data:
+                for side in ['left', 'right']:
+                    if side in self.helix_data and self.helix_data[side]:
+                        teeth = list(self.helix_data[side].keys())
+                        if teeth:
+                            max_tooth = max(teeth)
+                            print(f"从齿向数据推断齿数: {max_tooth}")
+                            return max_tooth
+        except Exception as e:
+            print(f"从数据推断齿数失败: {e}")
+
+        print("警告: 无法解析齿数，使用默认值 87")
+        return 87
+
     def _parse_header(self):
         content = self.raw_content or ""
 
@@ -118,11 +169,8 @@ class MKAReader:
         if mn_match:
             module = float(mn_match.group(1))
 
-        z_match = re.search(r'Zähnezahl\s*z\s*.*?:\s*(\d+)', content, re.IGNORECASE)
-        if not z_match:
-            z_match = re.search(r'Z..?hnezahl\s*z\s*.*?:\s*(\d+)', content, re.IGNORECASE)
-        if z_match:
-            teeth_count = int(z_match.group(1))
+        # 齿数解析 - 尝试多种模式
+        teeth_count = self._parse_teeth_count(content)
 
         alpha_match = re.search(r'Eingriffswinkel\s*alpha\s*.*?:\s*([\d.]+)', content, re.IGNORECASE)
         if alpha_match:
