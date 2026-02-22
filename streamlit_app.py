@@ -257,7 +257,7 @@ if uploaded_file is not None:
                 fig, ax = plt.subplots(figsize=(14, 5))
                 ax.plot(result.angles, result.values, 'b-', linewidth=0.5, alpha=0.7, label='原始曲线')
                 ax.plot(result.angles, result.reconstructed_signal, 'r-', linewidth=1.5, label='高阶重构')
-                ax.set_xlabel('旋转角度
+                ax.set_xlabel('旋转角度 (°)')
                 ax.set_ylabel('偏差 (μm)')
                 ax.set_title(f'{display_name} - 合并曲线 (ZE={ze})')
                 ax.legend()
@@ -312,7 +312,7 @@ if uploaded_file is not None:
                     ax.axvline(x=ze, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
                     ax.set_xlim(0, max(orders) + 20)
                 
-                ax.set_xlabel('阶次
+                ax.set_xlabel('阶次')
                 ax.set_ylabel('振幅 (μm)')
                 ax.set_title(f'{display_name} - 频谱图 (ZE={ze})')
                 ax.legend()
