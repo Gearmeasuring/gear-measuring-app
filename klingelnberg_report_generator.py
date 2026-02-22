@@ -26,9 +26,9 @@ class KlingelnbergReportGenerator:
     def _calculate_profile_deviations(self, values):
         """计算齿形偏差: F_alpha, fH_alpha, ff_alpha"""
         try:
-            if not values or len(values) == 0:
+            if values is None or len(values) == 0:
                 return 0.0, 0.0, 0.0
-            
+
             data = np.array(values)
             
             # 使用评价区间 (15% - 85%)
@@ -62,9 +62,9 @@ class KlingelnbergReportGenerator:
     def _calculate_lead_deviations(self, values):
         """计算齿向偏差: F_beta, fH_beta, ff_beta"""
         try:
-            if not values or len(values) == 0:
+            if values is None or len(values) == 0:
                 return 0.0, 0.0, 0.0
-            
+
             data = np.array(values)
             
             # 使用评价区间 (15% - 85%)
@@ -98,9 +98,9 @@ class KlingelnbergReportGenerator:
     def _calculate_crowning(self, values):
         """计算鼓形量 C_alpha 或 C_beta"""
         try:
-            if not values or len(values) == 0:
+            if values is None or len(values) == 0:
                 return 0.0
-            
+
             data = np.array(values)
             
             # 使用评价区间 (15% - 85%)
@@ -400,22 +400,23 @@ class KlingelnbergReportGenerator:
     def _create_profile_table(self, ax, analyzer, teeth_chunk):
         """创建齿形数据表格 - 只显示指定齿号，包含实际计算数据"""
         ax.axis('off')
-        
+
         # 获取当前页的齿号
         left_all = analyzer.reader.profile_data.get('left', {})
         right_all = analyzer.reader.profile_data.get('right', {})
-        
+
+        # 只使用实际存在的齿号
         left_teeth = [t for t in teeth_chunk if t in left_all]
         right_teeth = [t for t in teeth_chunk if t in right_all]
-        
+
         # 根据左右齿面确定齿号排列顺序
         left_teeth = sorted(left_teeth, reverse=True)  # 左侧降序
         right_teeth = sorted(right_teeth)  # 右侧升序
-        
-        if not left_teeth:
-            left_teeth = list(teeth_chunk[:3])
-        if not right_teeth:
-            right_teeth = list(teeth_chunk[:3])
+
+        # 如果没有数据，直接返回空表格
+        if not left_teeth and not right_teeth:
+            ax.text(0.5, 0.5, 'No Data Available', ha='center', va='center', transform=ax.transAxes)
+            return
         
         # 表头
         left_headers = [str(t) for t in left_teeth]
@@ -654,6 +655,7 @@ class KlingelnbergReportGenerator:
         left_all = analyzer.reader.helix_data.get('left', {})
         right_all = analyzer.reader.helix_data.get('right', {})
 
+        # 只使用实际存在的齿号
         left_teeth = [t for t in teeth_chunk if t in left_all]
         right_teeth = [t for t in teeth_chunk if t in right_all]
 
@@ -661,10 +663,10 @@ class KlingelnbergReportGenerator:
         left_teeth = sorted(left_teeth, reverse=True)  # 左侧降序
         right_teeth = sorted(right_teeth)  # 右侧升序
 
-        if not left_teeth:
-            left_teeth = list(teeth_chunk[:3])
-        if not right_teeth:
-            right_teeth = list(teeth_chunk[:3])
+        # 如果没有数据，直接返回空表格
+        if not left_teeth and not right_teeth:
+            ax.text(0.5, 0.5, 'No Data Available', ha='center', va='center', transform=ax.transAxes)
+            return
 
         left_headers = [str(t) for t in left_teeth]
         right_headers = [str(t) for t in right_teeth]
