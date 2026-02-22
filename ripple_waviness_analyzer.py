@@ -570,8 +570,8 @@ class RippleWavinessAnalyzer:
                         # 齿向数据处理
                         b1 = self.reader.b1
                         b2 = self.reader.b2
-                        ba = 0.0
-                        be = 42.0
+                        ba = min(b1, b2)  # 默认使用评估范围
+                        be = max(b1, b2)
                         
                         # 解析测量范围 - 改进正则表达式
                         # 格式: "Messanfang (unten)................................ba  [mm]..:    1.15"
@@ -599,11 +599,12 @@ class RippleWavinessAnalyzer:
                         corrected = self._remove_crown_and_slope(raw_values)
                         n = len(corrected)
                         
-                        # 计算角度
+                        # 计算角度 - 齿向数据均匀分布在齿的角度范围内
                         tooth_index = int(tooth_id) - 1
                         tooth_base_angle = tooth_index * pitch_angle_deg
                         pitch_angle = 360.0 / teeth_count
-                        point_angles_within_tooth = np.linspace(0, pitch_angle * 0.9, n)
+                        # 齿向数据均匀分布在齿的角度范围内（使用0.95避免重叠）
+                        point_angles_within_tooth = np.linspace(0, pitch_angle * 0.95, n)
                         final_angles = tooth_base_angle + point_angles_within_tooth
                         
                         all_angles.extend(final_angles.tolist())
