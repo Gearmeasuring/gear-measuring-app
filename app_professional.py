@@ -18,8 +18,27 @@ from io import BytesIO
 import tempfile
 import pandas as pd
 
-# 设置中文字体
-rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS']
+# 设置中文字体 - 使用系统可用字体
+import matplotlib.font_manager as fm
+
+# 尝试查找可用的中文字体
+def get_chinese_font():
+    """获取系统中可用的中文字体"""
+    chinese_fonts = ['SimHei', 'Microsoft YaHei', 'SimSun', 'NSimSun', 'FangSong', 'KaiTi',
+                     'WenQuanYi Micro Hei', 'Noto Sans CJK SC', 'Source Han Sans CN',
+                     'AR PL UMing CN', 'Droid Sans Fallback', 'DejaVu Sans']
+
+    available_fonts = [f.name for f in fm.fontManager.ttflist]
+
+    for font in chinese_fonts:
+        if font in available_fonts:
+            return font
+
+    # 如果没有找到中文字体，返回默认字体
+    return 'DejaVu Sans'
+
+chinese_font = get_chinese_font()
+rcParams['font.sans-serif'] = [chinese_font, 'DejaVu Sans', 'Arial Unicode MS']
 rcParams['axes.unicode_minus'] = False
 
 # 添加当前目录到路径
