@@ -570,28 +570,50 @@ class RippleWavinessAnalyzer:
                         # 齿向数据处理
                         b1 = self.reader.b1  # 起评点
                         b2 = self.reader.b2  # 终评点
+                        ba = 0.0  # 测量起始
+                        be = 42.0  # 测量结束
                         
-                        # 评价范围：终评点减去起评点
+                        # 解析测量范围
+                        ba_match = re.search(r'Messanfang.*?ba\s*\[mm\]\.*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
+                        if ba_match:
+                            ba = float(ba_match.group(1))
+                        be_match = re.search(r'Messende.*?be\s*\[mm\]\.*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
+                        if be_match:
+                            be = float(be_match.group(1))
+                        
+                        # 评价范围
                         eval_start = min(b1, b2)
                         eval_end = max(b1, b2)
-                        eval_length = eval_end - eval_start  # 评价范围长度
                         
-                        # 去除鼓形和斜率（使用全部数据）
+                        # 从全部数据中截取评价范围内的数据
+                        meas_length = be - ba
+                        if meas_length > 0:
+                            # 计算评价范围在测量范围内的比例
+                            start_ratio = (eval_start - ba) / meas_length
+                            end_ratio = (eval_end - ba) / meas_length
+                            
+                            n_total = len(raw_values)
+                            start_idx = max(0, int(start_ratio * n_total))
+                            end_idx = min(n_total, int(end_ratio * n_total))
+                            
+                            if end_idx - start_idx > 10:
+                                raw_values = raw_values[start_idx:end_idx]
+                        
+                        # 去除鼓形和斜率
                         corrected = self._remove_crown_and_slope(raw_values)
                         n = len(corrected)
                         
                         # 计算角度 - 使用螺旋角公式
-                        # 极角 = 2 * (测量点 - 起评点) * tan(螺旋角) / 节圆直径
+                        # 极角 = 2 * (评价范围内测量点 - 起评点) * tan(螺旋角) / 节圆直径
                         tooth_index = int(tooth_id) - 1
                         tooth_base_angle = tooth_index * pitch_angle_deg
                         
-                        # 从起评点到终评点的测量点位置
-                        meas_points = np.linspace(eval_start, eval_end, n)
+                        # 评价范围内的测量点位置（从0到评价范围长度）
+                        eval_points = np.linspace(0, eval_end - eval_start, n)
                         
                         # 计算每个测量点的极角变化
-                        # 极角 = 2 * (测量点 - 起评点) * tan(螺旋角) / 节圆直径
                         if pitch_diameter > 0 and abs(helix_angle) > 0.01:
-                            point_angle_change = 2.0 * (meas_points - eval_start) * np.tan(np.radians(abs(helix_angle))) / pitch_diameter
+                            point_angle_change = 2.0 * eval_points * np.tan(np.radians(abs(helix_angle))) / pitch_diameter
                             point_angles_deg = np.degrees(point_angle_change)
                         else:
                             # 如果螺旋角为0，使用均匀分布
