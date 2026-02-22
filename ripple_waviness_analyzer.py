@@ -202,11 +202,11 @@ class MKAReader:
         if d2_match:
             self.d2 = float(d2_match.group(1))
 
-        b1_match = re.search(r'Auswerteanfang\s*.*?b1.*?:\s*([\d.]+)', content, re.IGNORECASE)
+        b1_match = re.search(r'Auswerteanfang.*?b1\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
         if b1_match:
             self.b1 = float(b1_match.group(1))
 
-        b2_match = re.search(r'Auswerteende\s*.*?b2.*?:\s*([\d.]+)', content, re.IGNORECASE)
+        b2_match = re.search(r'Auswerteende.*?b2\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
         if b2_match:
             self.b2 = float(b2_match.group(1))
 
@@ -573,10 +573,12 @@ class RippleWavinessAnalyzer:
                         ba = 0.0
                         be = 42.0
                         
-                        ba_match = re.search(r'Messanfang[^:]*ba[^:]*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
+                        # 解析测量范围 - 改进正则表达式
+                        # 格式: "Messanfang (unten)................................ba  [mm]..:    1.15"
+                        ba_match = re.search(r'Messanfang.*?ba\s*\[mm\]\.*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
                         if ba_match:
                             ba = float(ba_match.group(1))
-                        be_match = re.search(r'Messende[^:]*be[^:]*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
+                        be_match = re.search(r'Messende.*?be\s*\[mm\]\.*:\s*([\d.]+)', self.reader.raw_content or "", re.IGNORECASE)
                         if be_match:
                             be = float(be_match.group(1))
                         
