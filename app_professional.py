@@ -751,7 +751,13 @@ if uploaded_file is not None:
                     colors_bar = ['red' if o >= ze else 'steelblue' for o in orders]
                     ax.bar(orders, amplitudes, color=colors_bar, alpha=0.7, width=3)
 
-                    ax.axvline(x=ze, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
+                    # 标识 ZE 及其倍数
+                    ze_multiples = [ze * i for i in range(1, 5) if ze * i <= max(orders) + 20]
+                    for i, ze_mult in enumerate(ze_multiples, 1):
+                        if i == 1:
+                            ax.axvline(x=ze_mult, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
+                        else:
+                            ax.axvline(x=ze_mult, color='orange', linestyle=':', linewidth=1.5, alpha=0.7, label=f'{i}×ZE={ze_mult}')
                     ax.set_xlim(0, max(orders) + 20)
 
                 ax.set_xlabel('Order')
