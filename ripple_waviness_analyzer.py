@@ -550,16 +550,18 @@ class RippleWavinessAnalyzer:
                         corrected = self._remove_crown_and_slope(raw_values)
                         n = len(corrected)
                         
-                        # 计算角度 - 使用渐开线极角
+                        # 计算角度 - 使用展长和展角
                         tooth_index = int(tooth_id) - 1
                         tooth_base_angle = tooth_index * pitch_angle_deg
                         
-                        # 使用展长计算极角
+                        # 使用展长直接计算展角
+                        # 展角 θ = L / rb (展长 / 基圆半径)
                         spread_lengths = np.linspace(eval_start_spread, eval_end_spread, n)
-                        radii = np.sqrt(spread_lengths ** 2 + base_radius ** 2)
-                        polar_angles = np.array([self._calculate_involute_polar_angle(r, base_radius) for r in radii])
-                        start_polar_angle = polar_angles[0]
-                        point_angles_deg = np.degrees(polar_angles - start_polar_angle)
+                        roll_angles = spread_lengths / base_radius  # 展角（弧度）
+                        
+                        # 起始展角为0
+                        start_roll_angle = roll_angles[0]
+                        point_angles_deg = np.degrees(roll_angles - start_roll_angle)
                         final_angles = tooth_base_angle + point_angles_deg
                         
                         all_angles.extend(final_angles.tolist())
@@ -659,12 +661,14 @@ class RippleWavinessAnalyzer:
                         eval_start_spread = np.sqrt(max(0, eval_start_radius**2 - base_radius**2))
                         eval_end_spread = np.sqrt(max(0, eval_end_radius**2 - base_radius**2))
                         
-                        # 使用展长计算极角
+                        # 使用展长直接计算展角
+                        # 展角 θ = L / rb (展长 / 基圆半径)
                         spread_lengths = np.linspace(eval_start_spread, eval_end_spread, n)
-                        radii = np.sqrt(spread_lengths ** 2 + base_radius ** 2)
-                        polar_angles = np.array([self._calculate_involute_polar_angle(r, base_radius) for r in radii])
-                        start_polar_angle = polar_angles[0]
-                        point_angles_deg = np.degrees(polar_angles - start_polar_angle)
+                        roll_angles = spread_lengths / base_radius  # 展角（弧度）
+                        
+                        # 起始展角为0
+                        start_roll_angle = roll_angles[0]
+                        point_angles_deg = np.degrees(roll_angles - start_roll_angle)
                         final_angles = tooth_base_angle + point_angles_deg
                         
                         all_angles.extend(final_angles.tolist())
