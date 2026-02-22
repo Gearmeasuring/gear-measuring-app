@@ -1,6 +1,6 @@
 """
 用户认证模块
-支持用户注册、登录、密码管理、访问记录
+支持用户注册、登录、密码管理、访问记录、会话持久化
 """
 
 import streamlit as st
@@ -8,15 +8,20 @@ import hashlib
 import secrets
 import json
 import os
+import time
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
 # 用户数据文件路径
 USERS_FILE = "users.json"
 ACCESS_LOG_FILE = "access_log.json"
+SESSION_FILE = ".session_cache.json"
 
 # 默认管理员账号
 DEFAULT_ADMIN = "tonyztzhou"
+
+# 会话有效期（秒）- 7天
+SESSION_EXPIRY = 7 * 24 * 60 * 60
 
 
 def load_users() -> Dict[str, Any]:
@@ -178,6 +183,9 @@ def login_user(username: str, password: str) -> tuple:
         "last_login": user["last_login"]
     }
 
+    # 保存会话到文件（用于持久化登录）
+    save_session(username, user_data)
+
     return True, "登录成功", user_data
 
 
@@ -260,8 +268,56 @@ def delete_user(username: str) -> bool:
     return False
 
 
+def save_session(username: str, user_data: Dict[str, Any]):
+    """保存会话到文件"""
+    session_data = {
+        "username": username,
+        "user_data": user_data,
+        "timestamp": time.time(),
+        "expiry": time.time() + SESSION_EXPIRY
+    }
+    try:
+        with open(SESSION_FILE, 'w', encoding='utf-8') as f:
+            json.dump(session_data, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"保存会话失败: {e}")
+
+
+def load_session() -> Optional[Dict[str, Any]]:
+    """从文件加载会话"""
+    if not os.path.exists(SESSION_FILE):
+        return None
+
+    try:
+        with open(SESSION_FILE, 'r', encoding='utf-8') as f:
+            session_data = json.load(f)
+
+        # 检查会话是否过期
+        if time.time() > session_data.get("expiry", 0):
+            # 会话过期，删除文件
+            try:
+                os.remove(SESSION_FILE)
+            except:
+                pass
+            return None
+
+        return session_data
+    except Exception as e:
+        print(f"加载会话失败: {e}")
+        return None
+
+
+def clear_session():
+    """清除会话文件"""
+    if os.path.exists(SESSION_FILE):
+        try:
+            os.remove(SESSION_FILE)
+        except:
+            pass
+
+
 def init_session_state():
-    """初始化 session state"""
+    """初始化 session state，并尝试恢复持久化会话"""
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
     if "user" not in st.session_state:
@@ -270,6 +326,23 @@ def init_session_state():
         st.session_state.show_register = False
     if "show_admin" not in st.session_state:
         st.session_state.show_admin = False
+
+    # 尝试从文件恢复会话
+    if not st.session_state.authenticated:
+        session = load_session()
+        if session:
+            username = session.get("username")
+            user_data = session.get("user_data")
+
+            # 验证用户是否仍然存在且有效
+            users = load_users()
+            if username in users and users[username].get("is_active", True):
+                st.session_state.authenticated = True
+                st.session_state.user = user_data
+                # 更新最后登录时间
+                users[username]["last_login"] = datetime.now().isoformat()
+                save_users(users)
+                log_access(username, "自动登录", "从持久化会话恢复")
 
 
 def login_page():
@@ -480,6 +553,8 @@ def logout():
     user = get_current_user()
     if user:
         log_access(user["username"], "登出", "用户退出登录")
+    # 清除持久化会话
+    clear_session()
     st.session_state.authenticated = False
     st.session_state.user = None
     st.rerun()
