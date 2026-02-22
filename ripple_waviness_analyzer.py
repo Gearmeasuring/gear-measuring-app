@@ -108,26 +108,26 @@ class MKAReader:
     
     def _parse_header(self):
         content = self.raw_content or ""
-        
+
         module = 1.0
         teeth_count = 87
         pressure_angle = 20.0
         helix_angle = 0.0
-        
+
         mn_match = re.search(r'Normalmodul\s*mn\s*.*?:\s*([\d.]+)', content, re.IGNORECASE)
         if mn_match:
             module = float(mn_match.group(1))
-        
+
         z_match = re.search(r'Zähnezahl\s*z\s*.*?:\s*(\d+)', content, re.IGNORECASE)
         if not z_match:
             z_match = re.search(r'Z..?hnezahl\s*z\s*.*?:\s*(\d+)', content, re.IGNORECASE)
         if z_match:
             teeth_count = int(z_match.group(1))
-        
+
         alpha_match = re.search(r'Eingriffswinkel\s*alpha\s*.*?:\s*([\d.]+)', content, re.IGNORECASE)
         if alpha_match:
             pressure_angle = float(alpha_match.group(1))
-        
+
         beta_match = re.search(r'Schr.gungswinkel[^:]*:\s*([\d.-]+)', content, re.IGNORECASE)
         if not beta_match:
             beta_match = re.search(r'Helix\s*angle[^:]*:\s*([\d.-]+)', content, re.IGNORECASE)
@@ -135,23 +135,87 @@ class MKAReader:
             beta_match = re.search(r'\[\s*Grad\s*\]\.\.:\s*([\d.]+)\s+rechts', content, re.IGNORECASE)
         if beta_match:
             helix_angle = float(beta_match.group(1))
-        
+
         d1_match = re.search(r'Auswertestrecke\s*.*?d1.*?:\s*([\d.]+)', content, re.IGNORECASE)
         if d1_match:
             self.d1 = float(d1_match.group(1))
-        
+
         d2_match = re.search(r'Auswertestrecke\s*.*?d2.*?:\s*([\d.]+)', content, re.IGNORECASE)
         if d2_match:
             self.d2 = float(d2_match.group(1))
-        
+
         b1_match = re.search(r'Auswerteanfang\s*.*?b1.*?:\s*([\d.]+)', content, re.IGNORECASE)
         if b1_match:
             self.b1 = float(b1_match.group(1))
-        
+
         b2_match = re.search(r'Auswerteende\s*.*?b2.*?:\s*([\d.]+)', content, re.IGNORECASE)
         if b2_match:
             self.b2 = float(b2_match.group(1))
-        
+
+        # 解析其他信息
+        self.info = {}
+
+        # 操作者
+        operator_match = re.search(r'Bedieners\s*:\s*(.+)', content, re.IGNORECASE)
+        if operator_match:
+            self.info['operator'] = operator_match.group(1).strip()
+        else:
+            operator_match = re.search(r'Operator\s*:\s*(.+)', content, re.IGNORECASE)
+            if operator_match:
+                self.info['operator'] = operator_match.group(1).strip()
+
+        # 日期
+        date_match = re.search(r'Datum\s*:\s*(\d{2}\.\d{2}\.\d{2,4})', content, re.IGNORECASE)
+        if date_match:
+            self.info['date'] = date_match.group(1)
+        else:
+            date_match = re.search(r'Date\s*:\s*(\d{2}\.\d{2}\.\d{2,4})', content, re.IGNORECASE)
+            if date_match:
+                self.info['date'] = date_match.group(1)
+
+        # 订单号
+        order_match = re.search(r'Auftrags-Nr\.\s*:\s*(.+)', content, re.IGNORECASE)
+        if order_match:
+            self.info['order_no'] = order_match.group(1).strip()
+        else:
+            order_match = re.search(r'Order\s*No\.\s*:\s*(.+)', content, re.IGNORECASE)
+            if order_match:
+                self.info['order_no'] = order_match.group(1).strip()
+
+        # 客户/机器号
+        customer_match = re.search(r'Kunde/Masch-Nr\.\s*:\s*(.+)', content, re.IGNORECASE)
+        if customer_match:
+            self.info['customer'] = customer_match.group(1).strip()
+        else:
+            customer_match = re.search(r'Cust\./Mach\.\s*No\.\s*:\s*(.+)', content, re.IGNORECASE)
+            if customer_match:
+                self.info['customer'] = customer_match.group(1).strip()
+
+        # 检查位置
+        location_match = re.search(r'Prüfort\s*:\s*(.+)', content, re.IGNORECASE)
+        if location_match:
+            self.info['location'] = location_match.group(1).strip()
+        else:
+            location_match = re.search(r'Loc\.\s*of\s*check\s*:\s*(.+)', content, re.IGNORECASE)
+            if location_match:
+                self.info['location'] = location_match.group(1).strip()
+
+        # 图号
+        drawing_match = re.search(r'Zeichnungs-Nr\.\s*:\s*(.+)', content, re.IGNORECASE)
+        if drawing_match:
+            self.info['drawing_no'] = drawing_match.group(1).strip()
+        else:
+            drawing_match = re.search(r'Drawing\s*No\.\s*:\s*(.+)', content, re.IGNORECASE)
+            if drawing_match:
+                self.info['drawing_no'] = drawing_match.group(1).strip()
+
+        # 类型
+        type_match = re.search(r'Type\s*:\s*(.+)', content, re.IGNORECASE)
+        if type_match:
+            self.info['type_'] = type_match.group(1).strip()
+        else:
+            self.info['type_'] = 'gear'
+
         self.gear_params = GearParameters(
             module=module,
             teeth_count=teeth_count,

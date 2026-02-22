@@ -160,28 +160,51 @@ if uploaded_file is not None:
         else:
             st.warning("PDF生成器不可用")
         
-        st.markdown("#### 基本信息")
+        st.markdown("#### Basic Information")
         col1, col2 = st.columns(2)
-        
+
+        # 从解析器获取信息
+        info = analyzer.reader.info if hasattr(analyzer.reader, 'info') else {}
+
         with col1:
             header_data1 = {
-                '参数': ['Prog.No.', 'Type', 'Drawing No.', 'Order No.', 'Cust./Mach. No.', 'Loc. of check'],
-                '值': [uploaded_file.name, 'gear', uploaded_file.name, '-', '-', '-']
+                'Parameter': ['Prog.No.', 'Type', 'Drawing No.', 'Order No.', 'Cust./Mach. No.', 'Loc. of check'],
+                'Value': [
+                    uploaded_file.name,
+                    info.get('type_', 'gear'),
+                    info.get('drawing_no', uploaded_file.name),
+                    info.get('order_no', '-'),
+                    info.get('customer', '-'),
+                    info.get('location', '-')
+                ]
             }
             st.table(header_data1)
-        
+
         with col2:
             if gear_params:
+                # 正确计算基圆直径
+                import math
+                beta = math.radians(abs(gear_params.helix_angle))
+                alpha_n = math.radians(gear_params.pressure_angle)
+                alpha_t = math.atan(math.tan(alpha_n) / math.cos(beta)) if abs(beta) > 1e-6 else alpha_n
+                pitch_diameter = gear_params.teeth_count * gear_params.module / math.cos(beta)
+                base_diameter = pitch_diameter * math.cos(alpha_t)
+
                 header_data2 = {
-                    '参数': ['Operator', 'No. of teeth', 'Module m', 'Pressure angle', 'Helix angle', 'Base Cir. db'],
-                    '值': ['Operator', str(gear_params.teeth_count), f"{gear_params.module:.3f}mm",
-                           f"{gear_params.pressure_angle}°", f"{gear_params.helix_angle}°",
-                           f"{gear_params.module * gear_params.teeth_count * np.cos(np.radians(gear_params.pressure_angle)):.3f}mm"]
+                    'Parameter': ['Operator', 'No. of teeth', 'Module m', 'Pressure angle', 'Helix angle', 'Base Cir. db'],
+                    'Value': [
+                        info.get('operator', 'Operator'),
+                        str(gear_params.teeth_count),
+                        f"{gear_params.module:.3f}mm",
+                        f"{gear_params.pressure_angle}°",
+                        f"{gear_params.helix_angle}°",
+                        f"{base_diameter:.3f}mm"
+                    ]
                 }
             else:
                 header_data2 = {
-                    '参数': ['Operator', 'No. of teeth', 'Module m', 'Pressure angle', 'Helix angle', 'Base Cir. db'],
-                    '值': ['Operator', '-', '-', '-', '-', '-']
+                    'Parameter': ['Operator', 'No. of teeth', 'Module m', 'Pressure angle', 'Helix angle', 'Base Cir. db'],
+                    'Value': ['Operator', '-', '-', '-', '-', '-']
                 }
             st.table(header_data2)
         
