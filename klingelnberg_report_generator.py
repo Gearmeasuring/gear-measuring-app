@@ -570,19 +570,26 @@ class KlingelnbergReportGenerator:
         """创建周节图表"""
         pitch_data = analyzer.reader.pitch_data.get(side, {})
         
-        if not pitch_data:
-            ax_fp.text(0.5, 0.5, 'No Data', ha='center', va='center')
-            ax_Fp.text(0.5, 0.5, 'No Data', ha='center', va='center')
+        if not pitch_data or 'teeth' not in pitch_data:
+            ax_fp.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax_fp.transAxes)
+            ax_Fp.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax_Fp.transAxes)
             return
         
-        teeth = sorted(pitch_data.keys())
-        fp_values = [pitch_data[t]['fp'] for t in teeth]
-        Fp_values = [pitch_data[t]['Fp'] for t in teeth]
+        teeth = pitch_data['teeth']
+        fp_values = pitch_data['fp_values']
+        Fp_values = pitch_data['Fp_values']
         
-        # 调整Fp值
+        if not teeth or not fp_values:
+            ax_fp.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax_fp.transAxes)
+            ax_Fp.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax_Fp.transAxes)
+            return
+        
+        # 调整Fp值（从0开始）
         if Fp_values:
             first_value = Fp_values[0]
-            Fp_values = [fp - first_value for fp in Fp_values]
+            Fp_values_adjusted = [fp - first_value for fp in Fp_values]
+        else:
+            Fp_values_adjusted = []
         
         # fp柱状图
         ax_fp.bar(teeth, fp_values, color='white', edgecolor='black', width=1.0, linewidth=0.5)
@@ -592,7 +599,7 @@ class KlingelnbergReportGenerator:
         ax_fp.text(0.02, 0.8, '10µm', transform=ax_fp.transAxes, fontsize=7)
         
         # Fp曲线图
-        ax_Fp.plot(teeth, Fp_values, 'k-', linewidth=0.8)
+        ax_Fp.plot(teeth, Fp_values_adjusted, 'k-', linewidth=0.8)
         ax_Fp.set_title(f'Index Fp {side} flank', fontsize=9, fontweight='bold', pad=2)
         ax_Fp.grid(True, linestyle=':', alpha=0.5)
         ax_Fp.set_xlim(0, len(teeth)+1)
@@ -611,14 +618,17 @@ class KlingelnbergReportGenerator:
         
         # 计算统计数据
         def calc_stats(data):
-            if not data:
+            if not data or 'teeth' not in data:
                 return {}
-            teeth = sorted(data.keys())
-            fp_vals = [data[t]['fp'] for t in teeth]
-            Fp_vals = [data[t]['Fp'] for t in teeth]
+            teeth = data['teeth']
+            fp_vals = data['fp_values']
+            Fp_vals = data['Fp_values']
+            
+            if not fp_vals or not Fp_vals:
+                return {}
             
             fp_max = max([abs(x) for x in fp_vals]) if fp_vals else 0
-            fu_max = max([abs(fp_vals[i] - fp_vals[i-1]) for i in range(len(fp_vals))]) if len(fp_vals) > 1 else 0
+            fu_max = max([abs(fp_vals[i] - fp_vals[i-1]) for i in range(1, len(fp_vals))]) if len(fp_vals) > 1 else 0
             Rp = max(fp_vals) - min(fp_vals) if fp_vals else 0
             Fp = max(Fp_vals) - min(Fp_vals) if Fp_vals else 0
             
@@ -655,13 +665,17 @@ class KlingelnbergReportGenerator:
         """创建Runout图表"""
         pitch_data = analyzer.reader.pitch_data.get('left', {})
         
-        if not pitch_data:
-            ax.text(0.5, 0.5, 'No Data', ha='center', va='center')
+        if not pitch_data or 'teeth' not in pitch_data:
+            ax.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax.transAxes)
             return
         
-        teeth = sorted(pitch_data.keys())
+        teeth = pitch_data['teeth']
         # 使用Fp值作为Runout数据
-        runout_values = [pitch_data[t]['Fp'] for t in teeth]
+        runout_values = pitch_data['Fp_values']
+        
+        if not teeth or not runout_values:
+            ax.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax.transAxes)
+            return
         
         # 绘制柱状图
         ax.bar(teeth, runout_values, color='white', edgecolor='black', width=1.0, linewidth=0.5)
