@@ -666,6 +666,19 @@ if uploaded_file is not None:
                 fig, ax = plt.subplots(figsize=(14, 5))
                 ax.plot(result.angles, result.values, 'b-', linewidth=0.5, alpha=0.7, label='Raw Curve')
                 ax.plot(result.angles, result.reconstructed_signal, 'r-', linewidth=1.5, label='High Order Reconstruction')
+                
+                # 添加齿数标志 - 在每个齿的起始位置添加虚线
+                pitch_angle = 360.0 / ze if ze > 0 else 4.14
+                for tooth_num in range(ze + 1):  # 从0到齿数
+                    tooth_angle = tooth_num * pitch_angle
+                    if tooth_angle <= 360:
+                        # 添加虚线标记每个齿的位置
+                        ax.axvline(x=tooth_angle, color='gray', linestyle=':', linewidth=0.5, alpha=0.5)
+                        # 在顶部添加齿号标记（每5个齿或第一个齿显示数字）
+                        if tooth_num % 5 == 0 or tooth_num == ze:
+                            ax.text(tooth_angle, ax.get_ylim()[1] * 0.95, str(tooth_num), 
+                                   ha='center', va='top', fontsize=7, color='gray', alpha=0.7)
+                
                 ax.set_xlabel('Rotation Angle (°)')
                 ax.set_ylabel('Deviation (μm)')
                 ax.set_title(f'{display_name} - Merged Curve (ZE={ze})')
