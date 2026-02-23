@@ -12,6 +12,7 @@ import os
 import time
 import threading
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Optional, Dict, Any, List
 
 # 用户数据文件路径
@@ -84,14 +85,26 @@ def save_access_log(logs: List[Dict[str, Any]]):
     _safe_write_json(ACCESS_LOG_FILE, logs)
 
 
+def get_beijing_time() -> datetime:
+    """获取北京时间"""
+    return datetime.now(ZoneInfo("Asia/Shanghai"))
+
+
+def format_beijing_time(dt: datetime = None) -> str:
+    """格式化北京时间为字符串"""
+    if dt is None:
+        dt = get_beijing_time()
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
 def log_access(username: str, action: str, details: str = ""):
-    """记录用户访问"""
+    """记录用户访问（使用北京时间）"""
     logs = load_access_log()
     logs.append({
         "username": username,
         "action": action,
         "details": details,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_beijing_time(),
         "ip": "",  # 在Streamlit中无法直接获取IP
     })
     # 只保留最近1000条记录
@@ -435,15 +448,21 @@ def login_page():
                 st.session_state.show_register = True
                 st.rerun()
 
-            # 显示系统信息
+            # 显示使用说明
             st.markdown("---")
             st.markdown("""
-            **系统功能：**
-            - 📊 齿形/齿向分析
-            - 📈 周节偏差测量
-            - 📉 合并曲线分析
-            - 📄 PDF报告生成
-            - 🔒 安全数据存储
+            **📖 使用说明：**
+            1. **已有账号**：直接输入用户名和密码登录
+            2. **新用户**：点击"创建新账户"注册，注册后即可登录
+            3. **各自账号**：每个用户拥有独立的账号和密码
+            4. **数据安全**：个人数据隔离存储，保护隐私
+            
+            **🔧 系统功能：**
+            - 📊 齿形/齿向波纹度分析
+            - 📈 周节偏差测量报告
+            - 📉 0-360°合并曲线分析
+            - 📄 专业PDF报告生成
+            - 🔒 安全数据存储与访问记录
             """)
 
 
@@ -557,8 +576,8 @@ def admin_panel():
         with col4:
             st.metric("访问记录", len(logs))
 
-        # 今日访问统计
-        today = datetime.now().strftime("%Y-%m-%d")
+        # 今日访问统计（使用北京时间）
+        today = get_beijing_time().strftime("%Y-%m-%d")
         today_logs = [log for log in logs if log['timestamp'].startswith(today)]
         st.write(f"**今日访问次数:** {len(today_logs)}")
 
