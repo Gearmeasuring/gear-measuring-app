@@ -597,7 +597,10 @@ if uploaded_file is not None:
                 tooth_profiles = profile_data[side][selected_tooth]
                 helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
                 best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
-                values = np.array(tooth_profiles[best_z])
+                raw_values = np.array(tooth_profiles[best_z])
+                
+                # 去除鼓形和斜率
+                values = analyzer._remove_crown_and_slope(raw_values)
                 
                 # 计算频谱
                 if len(values) > 8:
@@ -685,7 +688,10 @@ if uploaded_file is not None:
                 tooth_helix = helix_data[side][selected_tooth]
                 profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
                 best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
-                values = np.array(tooth_helix[best_d])
+                raw_values = np.array(tooth_helix[best_d])
+                
+                # 去除鼓形和斜率
+                values = analyzer._remove_crown_and_slope(raw_values)
                 
                 # 计算频谱
                 if len(values) > 8:
