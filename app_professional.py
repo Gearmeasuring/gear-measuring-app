@@ -914,6 +914,50 @@ if uploaded_file is not None:
                     ax.grid(True, alpha=0.3)
                     ax.set_xlim(0, 360)
                     st.pyplot(fig)
+                    
+                    # 显示单齿扩展合并曲线的频谱图
+                    if spectrum_components:
+                        st.markdown(f"**{side_name} - Single Tooth Expanded Spectrum**")
+                        
+                        col1, col2 = st.columns([3, 2])
+                        
+                        with col1:
+                            # Top 10 阶次表格
+                            st.markdown("**Top 10 Largest Orders:**")
+                            top_10_data = []
+                            for i, comp in enumerate(spectrum_components[:10], 1):
+                                top_10_data.append({
+                                    'Rank': i,
+                                    'Order': int(comp.order),
+                                    'Amplitude (μm)': f"{comp.amplitude:.4f}",
+                                    'Phase (°)': f"{np.degrees(comp.phase):.1f}"
+                                })
+                            st.dataframe(pd.DataFrame(top_10_data), use_container_width=True, hide_index=True)
+                        
+                        with col2:
+                            # 频谱图
+                            fig2, ax2 = plt.subplots(figsize=(8, 5))
+                            
+                            orders = [c.order for c in spectrum_components[:15]]
+                            amplitudes = [c.amplitude for c in spectrum_components[:15]]
+                            
+                            colors = ['red' if o >= ze else 'steelblue' for o in orders]
+                            ax2.bar(orders, amplitudes, color=colors, alpha=0.7)
+                            
+                            # 标记ZE及其倍数
+                            ze_multiples = [ze * i for i in range(1, 5) if ze * i <= max(orders)]
+                            for i, ze_mult in enumerate(ze_multiples, 1):
+                                if i == 1:
+                                    ax2.axvline(x=ze_mult, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
+                                else:
+                                    ax2.axvline(x=ze_mult, color='orange', linestyle=':', linewidth=1.5, alpha=0.7)
+                            
+                            ax2.set_title(f'Single Tooth Expanded Spectrum (ZE={ze})', fontsize=10, fontweight='bold')
+                            ax2.set_xlabel('Order')
+                            ax2.set_ylabel('Amplitude (μm)')
+                            ax2.legend()
+                            ax2.grid(True, alpha=0.3)
+                            st.pyplot(fig2)
     
     elif page == '📉 合并曲线':
         st.markdown("## Merged Curve Analysis (0-360°)")
