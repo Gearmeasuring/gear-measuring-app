@@ -630,7 +630,6 @@ if uploaded_file is not None:
                     
                     # 计算展长作为X轴
                     d1, d2 = analyzer.reader.d1, analyzer.reader.d2
-                    da, de = analyzer.reader.da, analyzer.reader.de
                     
                     # 展长计算
                     base_radius = gear_params.base_diameter / 2 if gear_params else 80
@@ -717,7 +716,6 @@ if uploaded_file is not None:
                     
                     # 齿向位置作为X轴
                     b1, b2 = analyzer.reader.b1, analyzer.reader.b2
-                    ba, be = analyzer.reader.ba, analyzer.reader.be
                     
                     x_data = np.linspace(b1, b2, len(values))
                     
