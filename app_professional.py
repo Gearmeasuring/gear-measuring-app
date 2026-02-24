@@ -879,8 +879,16 @@ if uploaded_file is not None:
                 values = analyzer._remove_crown_and_slope(raw_values)
                 
                 if len(values) > 5:
-                    # 创建单齿的角度数组（0到节距角）
-                    single_angles = np.linspace(0, pitch_angle, len(values))
+                    # 使用展角计算单齿的角度数组
+                    # 展角 θ = L / rb (展长 / 基圆半径)
+                    n = len(values)
+                    spread_lengths = np.linspace(eval_start_spread, eval_end_spread, n)
+                    roll_angles = spread_lengths / base_radius  # 展角（弧度）
+                    
+                    # 起始展角为0
+                    start_roll_angle = roll_angles[0]
+                    point_angles_deg = np.degrees(roll_angles - start_roll_angle)
+                    single_angles = point_angles_deg  # 单齿内的角度变化
                     
                     # 扩展到所有齿
                     expanded_angles = []
