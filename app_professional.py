@@ -995,6 +995,45 @@ if uploaded_file is not None:
                             ax2.legend()
                             ax2.grid(True, alpha=0.3)
                             st.pyplot(fig2)
+                    
+                    # 显示前5个齿的放大视图
+                    st.markdown(f"**{side_name} - First 5 Teeth Zoom View**")
+                    
+                    # 计算前5个齿的角度范围
+                    end_angle = 5 * pitch_angle
+                    zoom_mask = expanded_angles <= end_angle
+                    zoom_angles = expanded_angles[zoom_mask]
+                    zoom_values = expanded_values[zoom_mask]
+                    zoom_reconstructed = reconstructed[zoom_mask]
+                    
+                    if len(zoom_angles) > 0:
+                        fig3, ax3 = plt.subplots(figsize=(12, 4))
+                        
+                        # 降采样以改善显示
+                        if len(zoom_angles) > 5000:
+                            step = len(zoom_angles) // 2000 + 1
+                            zoom_angles = zoom_angles[::step]
+                            zoom_values = zoom_values[::step]
+                            zoom_reconstructed = zoom_reconstructed[::step]
+                        
+                        ax3.plot(zoom_angles, zoom_values, 'b-', linewidth=1.0, alpha=0.8, label='Raw Curve')
+                        ax3.plot(zoom_angles, zoom_reconstructed, 'r-', linewidth=2.0, label='High Order Reconstruction')
+                        
+                        # 添加齿数标志
+                        for tooth_num in range(6):  # 0到5
+                            tooth_angle = tooth_num * pitch_angle
+                            if tooth_angle <= end_angle:
+                                ax3.axvline(x=tooth_angle, color='gray', linestyle=':', linewidth=0.5, alpha=0.5)
+                                ax3.text(tooth_angle, ax3.get_ylim()[1] * 0.95, str(tooth_num), 
+                                        ha='center', va='top', fontsize=8, color='gray', alpha=0.7)
+                        
+                        ax3.set_xlabel('Rotation Angle (°)')
+                        ax3.set_ylabel('Deviation (μm)')
+                        ax3.set_title(f'{side_name} - First 5 Teeth (0° ~ {end_angle:.1f}°)')
+                        ax3.legend()
+                        ax3.grid(True, alpha=0.3)
+                        ax3.set_xlim(0, end_angle)
+                        st.pyplot(fig3)
     
     elif page == '📉 合并曲线':
         st.markdown("## Merged Curve Analysis (0-360°)")
