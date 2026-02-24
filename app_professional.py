@@ -582,53 +582,177 @@ if uploaded_file is not None:
         profile_data = analyzer.reader.profile_data
         helix_data = analyzer.reader.helix_data
         
-        st.markdown("### Profile Deviation Curves")
-        cols = st.columns(2)
-
-        for idx, side in enumerate(['left', 'right']):
+        # 获取齿轮参数
+        ze = gear_params.teeth_count if gear_params else 87
+        
+        # 齿形分析
+        st.markdown("### Profile Analysis")
+        for side in ['left', 'right']:
             side_name = 'Left Profile' if side == 'left' else 'Right Profile'
-
+            
             if selected_tooth in profile_data.get(side, {}):
-                with cols[idx]:
-                    tooth_profiles = profile_data[side][selected_tooth]
-                    helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
-                    best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
-                    values = tooth_profiles[best_z]
-
-                    fig, ax = plt.subplots(figsize=(8, 6))
-                    x_data = np.linspace(0, 8, len(values))
-                    ax.plot(x_data, values, 'b-', linewidth=1.5, label='Raw Data')
-
+                st.markdown(f"#### {side_name} - Tooth {selected_tooth}")
+                
+                # 获取数据
+                tooth_profiles = profile_data[side][selected_tooth]
+                helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
+                best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
+                values = np.array(tooth_profiles[best_z])
+                
+                # 计算频谱
+                if len(values) > 8:
+                    # 创建角度数组（0-360度）
+                    angles = np.linspace(0, 360, len(values))
+                    # 计算频谱
+                    spectrum_components = analyzer._iterative_sine_decomposition(angles, values, num_components=10, max_order=50)
+                    
+                    # 显示指标
+                    if spectrum_components:
+                        col1, col2, col3, col4 = st.columns(4)
+                        max_comp = spectrum_components[0]
+                        high_order_comps = [c for c in spectrum_components if c.order >= ze]
+                        
+                        with col1:
+                            st.metric("Max Amplitude", f"{max_comp.amplitude:.4f} μm")
+                        with col2:
+                            st.metric("Max Order", int(max_comp.order))
+                        with col3:
+                            st.metric("Wave Count", len(spectrum_components))
+                        with col4:
+                            rms = np.sqrt(np.mean([c.amplitude**2 for c in high_order_comps])) if high_order_comps else 0
+                            st.metric("High Order RMS", f"{rms:.4f} μm")
+                
+                # 创建左右布局：曲线图 + 频谱图
+                col_curve, col_spectrum = st.columns([3, 2])
+                
+                with col_curve:
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    
+                    # 计算展长作为X轴
+                    d1, d2 = analyzer.reader.d1, analyzer.reader.d2
+                    da, de = analyzer.reader.da, analyzer.reader.de
+                    
+                    # 展长计算
+                    base_radius = gear_params.base_diameter / 2 if gear_params else 80
+                    eval_start_radius = d1 / 2.0
+                    eval_end_radius = d2 / 2.0
+                    eval_start_spread = np.sqrt(max(0, eval_start_radius**2 - base_radius**2))
+                    eval_end_spread = np.sqrt(max(0, eval_end_radius**2 - base_radius**2))
+                    
+                    x_data = np.linspace(eval_start_spread, eval_end_spread, len(values))
+                    
+                    ax.plot(x_data, values, 'b-', linewidth=1.0, label='Raw Data')
+                    
+                    # 标记评价范围
+                    ax.axvline(x=eval_start_spread, color='green', linestyle='--', linewidth=1.5, alpha=0.7, label=f'Eval Start')
+                    ax.axvline(x=eval_end_spread, color='red', linestyle='--', linewidth=1.5, alpha=0.7, label=f'Eval End')
+                    
                     ax.set_title(f"{side_name} - Tooth {selected_tooth}", fontsize=12, fontweight='bold')
-                    ax.set_xlabel("Evaluation Length (mm)")
+                    ax.set_xlabel("Spread Length (mm)")
                     ax.set_ylabel("Deviation (μm)")
                     ax.legend()
                     ax.grid(True, alpha=0.3)
                     st.pyplot(fig)
-
-        st.markdown("### Lead Deviation Curves")
-        cols = st.columns(2)
-
-        for idx, side in enumerate(['left', 'right']):
+                
+                with col_spectrum:
+                    if spectrum_components:
+                        fig2, ax2 = plt.subplots(figsize=(6, 5))
+                        
+                        orders = [c.order for c in spectrum_components[:15]]
+                        amplitudes = [c.amplitude for c in spectrum_components[:15]]
+                        
+                        colors = ['red' if o >= ze else 'steelblue' for o in orders]
+                        ax2.bar(orders, amplitudes, color=colors, alpha=0.7)
+                        
+                        # 标记ZE
+                        ax2.axvline(x=ze, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
+                        
+                        ax2.set_title("Single Tooth Spectrum", fontsize=10, fontweight='bold')
+                        ax2.set_xlabel("Order")
+                        ax2.set_ylabel("Amplitude (μm)")
+                        ax2.legend()
+                        ax2.grid(True, alpha=0.3)
+                        st.pyplot(fig2)
+        
+        # 齿向分析
+        st.markdown("### Lead Analysis")
+        for side in ['left', 'right']:
             side_name = 'Left Lead' if side == 'left' else 'Right Lead'
-
+            
             if selected_tooth in helix_data.get(side, {}):
-                with cols[idx]:
-                    tooth_helix = helix_data[side][selected_tooth]
-                    profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
-                    best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
-                    values = tooth_helix[best_d]
-
-                    fig, ax = plt.subplots(figsize=(8, 6))
-                    x_data = np.linspace(0, 40, len(values))
-                    ax.plot(x_data, values, 'g-', linewidth=1.5, label='Raw Data')
-
+                st.markdown(f"#### {side_name} - Tooth {selected_tooth}")
+                
+                # 获取数据
+                tooth_helix = helix_data[side][selected_tooth]
+                profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
+                best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
+                values = np.array(tooth_helix[best_d])
+                
+                # 计算频谱
+                if len(values) > 8:
+                    angles = np.linspace(0, 360, len(values))
+                    spectrum_components = analyzer._iterative_sine_decomposition(angles, values, num_components=10, max_order=50)
+                    
+                    # 显示指标
+                    if spectrum_components:
+                        col1, col2, col3, col4 = st.columns(4)
+                        max_comp = spectrum_components[0]
+                        high_order_comps = [c for c in spectrum_components if c.order >= ze]
+                        
+                        with col1:
+                            st.metric("Max Amplitude", f"{max_comp.amplitude:.4f} μm")
+                        with col2:
+                            st.metric("Max Order", int(max_comp.order))
+                        with col3:
+                            st.metric("Wave Count", len(spectrum_components))
+                        with col4:
+                            rms = np.sqrt(np.mean([c.amplitude**2 for c in high_order_comps])) if high_order_comps else 0
+                            st.metric("High Order RMS", f"{rms:.4f} μm")
+                
+                # 创建左右布局：曲线图 + 频谱图
+                col_curve, col_spectrum = st.columns([3, 2])
+                
+                with col_curve:
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    
+                    # 齿向位置作为X轴
+                    b1, b2 = analyzer.reader.b1, analyzer.reader.b2
+                    ba, be = analyzer.reader.ba, analyzer.reader.be
+                    
+                    x_data = np.linspace(b1, b2, len(values))
+                    
+                    ax.plot(x_data, values, 'g-', linewidth=1.0, label='Raw Data')
+                    
+                    # 标记评价范围
+                    ax.axvline(x=b1, color='green', linestyle='--', linewidth=1.5, alpha=0.7, label=f'b1={b1:.2f}')
+                    ax.axvline(x=b2, color='red', linestyle='--', linewidth=1.5, alpha=0.7, label=f'b2={b2:.2f}')
+                    
                     ax.set_title(f"{side_name} - Tooth {selected_tooth}", fontsize=12, fontweight='bold')
-                    ax.set_xlabel("Face Width (mm)")
+                    ax.set_xlabel("Face Width Position (mm)")
                     ax.set_ylabel("Deviation (μm)")
                     ax.legend()
                     ax.grid(True, alpha=0.3)
                     st.pyplot(fig)
+                
+                with col_spectrum:
+                    if spectrum_components:
+                        fig2, ax2 = plt.subplots(figsize=(6, 5))
+                        
+                        orders = [c.order for c in spectrum_components[:15]]
+                        amplitudes = [c.amplitude for c in spectrum_components[:15]]
+                        
+                        colors = ['red' if o >= ze else 'steelblue' for o in orders]
+                        ax2.bar(orders, amplitudes, color=colors, alpha=0.7)
+                        
+                        # 标记ZE
+                        ax2.axvline(x=ze, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
+                        
+                        ax2.set_title("Single Tooth Spectrum", fontsize=10, fontweight='bold')
+                        ax2.set_xlabel("Order")
+                        ax2.set_ylabel("Amplitude (μm)")
+                        ax2.legend()
+                        ax2.grid(True, alpha=0.3)
+                        st.pyplot(fig2)
     
     elif page == '📉 合并曲线':
         st.markdown("## Merged Curve Analysis (0-360°)")
