@@ -313,6 +313,9 @@ if uploaded_file is not None:
         with col2:
             st.markdown("**齿轮参数**")
             if gear_params:
+                import math
+                beta = math.radians(abs(gear_params.helix_angle))
+                pitch_diameter = gear_params.teeth_count * gear_params.module / math.cos(beta) if gear_params.module > 0 else 0
                 header_data2 = {
                     '参数': ['No. of teeth', 'Module m', 'Pressure angle', 'Helix angle', 'Pitch diameter'],
                     '值': [
@@ -320,7 +323,7 @@ if uploaded_file is not None:
                         f"{gear_params.module:.3f}mm",
                         f"{gear_params.pressure_angle}°",
                         f"{gear_params.helix_angle}°",
-                        f"{gear_params.module * gear_params.teeth_count:.3f}mm"
+                        f"{pitch_diameter:.3f}mm"
                     ]
                 }
                 st.table(header_data2)

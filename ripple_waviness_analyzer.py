@@ -116,9 +116,11 @@ class MKAReader:
         # 模式列表 - 按优先级排序，更具体的模式在前
         # 使用原始字节匹配来避免编码问题
         patterns = [
-            # 匹配 Z�hnezahl 或 Zähnezahl (使用 . 匹配任意字符)
-            r'Z.hnezahl\s*z\s*\.+:\s*(\d+)',
-            r'Z.hnezahl\s*z\s*[^:\n]*:\s*(\d+)',
+            # 匹配 Z�hnezahl 或 Zähnezahl 行格式: "22  :Zähnezahl z.............................:  26"
+            r':Z[^:]*hnezahl[^:]*z[^:]*:\s*(\d+)',
+            # 备选：更宽松的匹配
+            r'Z.hnezahl.*?z.*?:\s*(\d+)',
+            r'Z.hnezahl[^:\n]*:\s*(\d+)',
             # 备选：直接匹配行模式
             r':Z[^:]*hnezahl[^:]*:\s*(\d+)',
             # 英语格式
@@ -300,9 +302,23 @@ class MKAReader:
         lines = self.lines
         
         i = 0
+        current_section = None  # 用于跟踪当前是 Flankenlinie 还是 Profil 部分
+        
         while i < len(lines):
             line = lines[i].strip()
             
+            # 检查是否是新的部分开始
+            if re.match(r'^Flankenlinie:\s*$', line, re.IGNORECASE):
+                current_section = 'helix'
+                i += 1
+                continue
+            
+            if re.match(r'^Profil:\s*$', line, re.IGNORECASE):
+                current_section = 'profile'
+                i += 1
+                continue
+            
+            # 匹配单行格式：Flankenlinie: Zahn-Nr.: X links
             helix_match = re.match(r'Flankenlinie:\s*Zahn-Nr\.?:\s*(\d+)([a-z]?)\s+(links|rechts|left|right)', line, re.IGNORECASE)
             if helix_match:
                 tooth_num = int(helix_match.group(1))
@@ -320,6 +336,26 @@ class MKAReader:
                 i += 1
                 continue
             
+            # 匹配多行格式：在 Flankenlinie: 之后的 Zahn-Nr.: X links
+            if current_section == 'helix':
+                helix_data_match = re.match(r'Zahn-Nr\.?:\s*(\d+)([a-z]?)\s+(links|rechts|left|right)', line, re.IGNORECASE)
+                if helix_data_match:
+                    tooth_num = int(helix_data_match.group(1))
+                    side_str = helix_data_match.group(3).lower()
+                    side = 'left' if side_str in ['links', 'left'] else 'right'
+                    
+                    d_match = re.search(r'd=\s*([\d.]+)', line)
+                    d_pos = float(d_match.group(1)) if d_match else 0
+                    
+                    values = self._parse_data_values(lines, i + 1)
+                    if values is not None and len(values) > 0:
+                        if tooth_num not in self.helix_data[side]:
+                            self.helix_data[side][tooth_num] = {}
+                        self.helix_data[side][tooth_num][d_pos] = values
+                    i += 1
+                    continue
+            
+            # 匹配单行格式：Profil: Zahn-Nr.: X rechts
             profile_match = re.match(r'Profil:\s*Zahn-Nr\.?:\s*(\d+)([a-z]?)\s+(links|rechts|left|right)', line, re.IGNORECASE)
             if profile_match:
                 tooth_num = int(profile_match.group(1))
@@ -336,6 +372,25 @@ class MKAReader:
                     self.profile_data[side][tooth_num][z_pos] = values
                 i += 1
                 continue
+            
+            # 匹配多行格式：在 Profil: 之后的 Zahn-Nr.: X rechts
+            if current_section == 'profile':
+                profile_data_match = re.match(r'Zahn-Nr\.?:\s*(\d+)([a-z]?)\s+(links|rechts|left|right)', line, re.IGNORECASE)
+                if profile_data_match:
+                    tooth_num = int(profile_data_match.group(1))
+                    side_str = profile_data_match.group(3).lower()
+                    side = 'left' if side_str in ['links', 'left'] else 'right'
+                    
+                    z_match = re.search(r'z=\s*([\d.]+)', line)
+                    z_pos = float(z_match.group(1)) if z_match else 0
+                    
+                    values = self._parse_data_values(lines, i + 1)
+                    if values is not None and len(values) > 0:
+                        if tooth_num not in self.profile_data[side]:
+                            self.profile_data[side][tooth_num] = {}
+                        self.profile_data[side][tooth_num][z_pos] = values
+                    i += 1
+                    continue
             
             i += 1
     
