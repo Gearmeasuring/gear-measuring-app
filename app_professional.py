@@ -757,6 +757,100 @@ if uploaded_file is not None:
                         ax2.legend()
                         ax2.grid(True, alpha=0.3)
                         st.pyplot(fig2)
+        
+        # 单齿扩展合并曲线
+        st.markdown("---")
+        st.markdown("### Single Tooth Expanded Merged Curve (0-360°)")
+        st.info("将单齿曲线复制到所有齿，形成完整的0-360°合并曲线，用于计算完整频谱")
+        
+        pitch_angle = 360.0 / ze if ze > 0 else 4.14
+        
+        for side in ['left', 'right']:
+            side_name = 'Left Profile' if side == 'left' else 'Right Profile'
+            
+            if selected_tooth in profile_data.get(side, {}):
+                # 获取单齿数据
+                tooth_profiles = profile_data[side][selected_tooth]
+                helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
+                best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
+                raw_values = np.array(tooth_profiles[best_z])
+                
+                # 去除鼓形和斜率
+                values = analyzer._remove_crown_and_slope(raw_values)
+                
+                if len(values) > 5:
+                    # 创建单齿的角度数组（0到节距角）
+                    single_angles = np.linspace(0, pitch_angle, len(values))
+                    
+                    # 扩展到所有齿
+                    expanded_angles = []
+                    expanded_values = []
+                    
+                    for tooth_num in range(ze):
+                        tooth_base = tooth_num * pitch_angle
+                        for angle, value in zip(single_angles, values):
+                            new_angle = tooth_base + angle
+                            if new_angle < 360:
+                                expanded_angles.append(new_angle)
+                                expanded_values.append(value)
+                    
+                    expanded_angles = np.array(expanded_angles)
+                    expanded_values = np.array(expanded_values)
+                    
+                    # 排序
+                    sort_idx = np.argsort(expanded_angles)
+                    expanded_angles = expanded_angles[sort_idx]
+                    expanded_values = expanded_values[sort_idx]
+                    
+                    # 计算高阶重建信号
+                    angles_rad = np.deg2rad(expanded_angles)
+                    reconstructed = np.zeros_like(expanded_values)
+                    
+                    # 计算频谱
+                    if len(expanded_angles) > 8:
+                        spectrum_components = analyzer._iterative_sine_decomposition(expanded_angles, expanded_values, num_components=10, max_order=5*ze)
+                        high_order_comps = [c for c in spectrum_components if c.order >= ze]
+                        
+                        for comp in high_order_comps:
+                            a = comp.amplitude * np.sin(comp.phase)
+                            b = comp.amplitude * np.cos(comp.phase)
+                            reconstructed += a * np.cos(comp.order * angles_rad) + b * np.sin(comp.order * angles_rad)
+                        
+                        # 显示指标
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            high_order_amplitude = sum(c.amplitude for c in high_order_comps) if high_order_comps else 0.0
+                            st.metric("High Order Amplitude W", f"{high_order_amplitude:.4f} μm")
+                        with col2:
+                            high_order_rms = np.sqrt(sum(c.amplitude**2 for c in high_order_comps)) if high_order_comps else 0.0
+                            st.metric("High Order RMS", f"{high_order_rms:.4f} μm")
+                        with col3:
+                            st.metric("High Order Wave Count", len(high_order_comps))
+                        with col4:
+                            if spectrum_components:
+                                st.metric("Dominant Order", int(spectrum_components[0].order))
+                    
+                    # 绘制合并曲线
+                    fig, ax = plt.subplots(figsize=(14, 5))
+                    ax.plot(expanded_angles, expanded_values, 'b-', linewidth=0.5, alpha=0.7, label='Raw Curve')
+                    ax.plot(expanded_angles, reconstructed, 'r-', linewidth=1.5, label='High Order Reconstruction')
+                    
+                    # 添加齿数标志
+                    for tooth_num in range(ze + 1):
+                        tooth_angle = tooth_num * pitch_angle
+                        if tooth_angle <= 360:
+                            ax.axvline(x=tooth_angle, color='gray', linestyle=':', linewidth=0.5, alpha=0.5)
+                            if tooth_num % 5 == 0 or tooth_num == ze:
+                                ax.text(tooth_angle, ax.get_ylim()[1] * 0.95, str(tooth_num), 
+                                       ha='center', va='top', fontsize=7, color='gray', alpha=0.7)
+                    
+                    ax.set_xlabel('Rotation Angle (°)')
+                    ax.set_ylabel('Deviation (μm)')
+                    ax.set_title(f'{side_name} - Single Tooth Expanded Merged Curve (ZE={ze})')
+                    ax.legend()
+                    ax.grid(True, alpha=0.3)
+                    ax.set_xlim(0, 360)
+                    st.pyplot(fig)
     
     elif page == '📉 合并曲线':
         st.markdown("## Merged Curve Analysis (0-360°)")
