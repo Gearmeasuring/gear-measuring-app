@@ -838,6 +838,43 @@ if uploaded_file is not None:
                 best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
                 raw_values = np.array(tooth_profiles[best_z])
                 
+                # 截取评价范围内的数据
+                d1, d2 = analyzer.reader.d1, analyzer.reader.d2
+                da, de = d1, d2
+                
+                # 解析测量范围
+                da_match = re.search(r'Start\s+Messbereich.*?da\s*\[mm\]\.*:\s*([\d.]+)', analyzer.reader.raw_content or "", re.IGNORECASE)
+                if da_match:
+                    da = float(da_match.group(1))
+                de_match = re.search(r'Ende\s+der\s+Messstrecke.*?de\s*\[mm\]\.*:\s*([\d.]+)', analyzer.reader.raw_content or "", re.IGNORECASE)
+                if de_match:
+                    de = float(de_match.group(1))
+                
+                # 计算展长范围
+                base_radius = gear_params.base_diameter / 2 if gear_params else 80
+                meas_start_radius = da / 2.0
+                meas_end_radius = de / 2.0
+                eval_start_radius = d1 / 2.0
+                eval_end_radius = d2 / 2.0
+                
+                meas_start_spread = np.sqrt(max(0, meas_start_radius**2 - base_radius**2))
+                meas_end_spread = np.sqrt(max(0, meas_end_radius**2 - base_radius**2))
+                eval_start_spread = np.sqrt(max(0, eval_start_radius**2 - base_radius**2))
+                eval_end_spread = np.sqrt(max(0, eval_end_radius**2 - base_radius**2))
+                
+                # 截取评价范围内的数据
+                total_spread = meas_end_spread - meas_start_spread
+                if total_spread > 0:
+                    start_ratio = (eval_start_spread - meas_start_spread) / total_spread
+                    end_ratio = (eval_end_spread - meas_start_spread) / total_spread
+                    
+                    n_total = len(raw_values)
+                    start_idx = max(0, int(start_ratio * n_total))
+                    end_idx = min(n_total, int(end_ratio * n_total))
+                    
+                    if end_idx - start_idx > 10:
+                        raw_values = raw_values[start_idx:end_idx]
+                
                 # 去除鼓形和斜率
                 values = analyzer._remove_crown_and_slope(raw_values)
                 
