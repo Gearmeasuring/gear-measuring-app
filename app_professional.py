@@ -791,6 +791,10 @@ if uploaded_file is not None:
                     else:
                         st.metric("Dominant Order", "-")
 
+                # 检查是否为单齿扩展数据
+                unique_teeth_in_data = len(set(result.angles // pitch_angle))
+                is_single_tooth_expanded = unique_teeth_in_data < ze
+                
                 fig, ax = plt.subplots(figsize=(14, 5))
                 ax.plot(result.angles, result.values, 'b-', linewidth=0.5, alpha=0.7, label='Raw Curve')
                 ax.plot(result.angles, result.reconstructed_signal, 'r-', linewidth=1.5, label='High Order Reconstruction')
@@ -809,7 +813,13 @@ if uploaded_file is not None:
                 
                 ax.set_xlabel('Rotation Angle (°)')
                 ax.set_ylabel('Deviation (μm)')
-                ax.set_title(f'{display_name} - Merged Curve (ZE={ze})')
+                
+                # 如果是单齿扩展，在标题中标识
+                if is_single_tooth_expanded:
+                    ax.set_title(f'{display_name} - Merged Curve (ZE={ze}, Single Tooth Expanded)')
+                else:
+                    ax.set_title(f'{display_name} - Merged Curve (ZE={ze})')
+                
                 ax.legend()
                 ax.grid(True, alpha=0.3)
                 ax.set_xlim(0, 360)
