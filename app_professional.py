@@ -992,6 +992,9 @@ if uploaded_file is not None:
                     else:
                         st.metric("Dominant Order", "-")
 
+                # 计算节距角
+                pitch_angle = 360.0 / ze if ze > 0 else 4.14
+                
                 # 检查是否为单齿扩展数据
                 unique_teeth_in_data = len(set(result.angles // pitch_angle))
                 is_single_tooth_expanded = unique_teeth_in_data < ze
@@ -1001,7 +1004,6 @@ if uploaded_file is not None:
                 ax.plot(result.angles, result.reconstructed_signal, 'r-', linewidth=1.5, label='High Order Reconstruction')
                 
                 # 添加齿数标志 - 在每个齿的起始位置添加虚线
-                pitch_angle = 360.0 / ze if ze > 0 else 4.14
                 for tooth_num in range(ze + 1):  # 从0到齿数
                     tooth_angle = tooth_num * pitch_angle
                     if tooth_angle <= 360:
