@@ -14,6 +14,7 @@ from matplotlib import rcParams
 from matplotlib.backends.backend_pdf import PdfPages
 import sys
 import os
+import re
 from datetime import datetime
 from io import BytesIO
 import tempfile
