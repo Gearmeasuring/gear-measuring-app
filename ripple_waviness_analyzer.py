@@ -713,6 +713,37 @@ class RippleWavinessAnalyzer:
         all_angles = all_angles[sort_idx]
         all_values = all_values[sort_idx]
         
+        # 如果齿数不够一周（只有单齿或少量齿），将单齿曲线复制到所有齿
+        unique_teeth = len(sorted_teeth)
+        if unique_teeth < teeth_count:
+            # 找到单个齿的角度范围
+            if len(all_angles) > 0:
+                # 计算单齿的角度跨度
+                single_tooth_angles = all_angles[all_angles < pitch_angle_deg]
+                single_tooth_values = all_values[all_angles < pitch_angle_deg]
+                
+                if len(single_tooth_angles) > 5:
+                    # 将单齿曲线复制到所有齿
+                    expanded_angles = []
+                    expanded_values = []
+                    
+                    for tooth_num in range(teeth_count):
+                        tooth_base = tooth_num * pitch_angle_deg
+                        # 复制单齿数据到当前齿
+                        for i, (angle, value) in enumerate(zip(single_tooth_angles, single_tooth_values)):
+                            new_angle = tooth_base + angle
+                            if new_angle < 360:
+                                expanded_angles.append(new_angle)
+                                expanded_values.append(value)
+                    
+                    all_angles = np.array(expanded_angles)
+                    all_values = np.array(expanded_values)
+                    
+                    # 重新排序
+                    sort_idx = np.argsort(all_angles)
+                    all_angles = all_angles[sort_idx]
+                    all_values = all_values[sort_idx]
+        
         return all_angles, all_values
     
     def _iterative_sine_decomposition(self, angles: np.ndarray, values: np.ndarray,
