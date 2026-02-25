@@ -145,14 +145,12 @@ if uploaded_file is not None:
         analyzer = RippleWavinessAnalyzer(temp_path)
         analyzer.load_file()
         
-        # 预计算所有结果
-        results = {
-            'profile_left': analyzer.analyze_profile('left', verbose=False),
-            'profile_right': analyzer.analyze_profile('right', verbose=False),
-            'helix_left': analyzer.analyze_helix('left', verbose=False),
-            'helix_right': analyzer.analyze_helix('right', verbose=False)
-        }
+        # 延迟加载：只在需要时计算分析结果
+        # 使用session_state缓存结果避免重复计算
+        if 'analyzer' not in st.session_state:
+            st.session_state.analyzer = analyzer
         
+        # 预计算轻量级结果（齿轮参数等基本信息）
         pitch_left = analyzer.analyze_pitch('left')
         pitch_right = analyzer.analyze_pitch('right')
     
@@ -519,6 +517,7 @@ if uploaded_file is not None:
                         
                         plt.tight_layout()
                         st.pyplot(fig)
+                        plt.close(fig)
                         
                         F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
                         if F_a is not None:
@@ -648,6 +647,7 @@ if uploaded_file is not None:
                         
                         plt.tight_layout()
                         st.pyplot(fig)
+                        plt.close(fig)
                         
                         F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
                         if F_a is not None:
@@ -785,6 +785,7 @@ if uploaded_file is not None:
                         
                         plt.tight_layout()
                         st.pyplot(fig)
+                        plt.close(fig)
                         
                         F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
                         if F_b is not None:
@@ -914,6 +915,7 @@ if uploaded_file is not None:
                         
                         plt.tight_layout()
                         st.pyplot(fig)
+                        plt.close(fig)
                         
                         F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
                         if F_b is not None:
@@ -1062,6 +1064,7 @@ if uploaded_file is not None:
                 ax.grid(True, linestyle=':', alpha=0.5)
                 ax.set_xlim(0, len(teeth_left)+1)
                 st.pyplot(fig)
+                        plt.close(fig)
 
             with col2:
                 # Fp曲线图
@@ -1073,6 +1076,7 @@ if uploaded_file is not None:
                 ax.grid(True, linestyle=':', alpha=0.5)
                 ax.set_xlim(0, len(teeth_left)+1)
                 st.pyplot(fig)
+                        plt.close(fig)
 
         # 右齿面图表
         if pitch_data_right and 'teeth' in pitch_data_right:
@@ -1100,6 +1104,7 @@ if uploaded_file is not None:
                 ax.grid(True, linestyle=':', alpha=0.5)
                 ax.set_xlim(0, len(teeth_right)+1)
                 st.pyplot(fig)
+                        plt.close(fig)
 
             with col2:
                 # Fp曲线图
@@ -1111,6 +1116,7 @@ if uploaded_file is not None:
                 ax.grid(True, linestyle=':', alpha=0.5)
                 ax.set_xlim(0, len(teeth_right)+1)
                 st.pyplot(fig)
+                        plt.close(fig)
 
         st.markdown("---")
         st.markdown("### Runout")
@@ -1143,6 +1149,7 @@ if uploaded_file is not None:
                 ax.set_xlim(0, len(teeth)+1)
                 ax.legend()
                 st.pyplot(fig)
+                        plt.close(fig)
 
         st.markdown("---")
         st.markdown("### Pitch Deviation Statistics")
@@ -1381,6 +1388,7 @@ if uploaded_file is not None:
                 ax.legend()
                 ax.grid(True, alpha=0.3)
                 st.pyplot(fig)
+                        plt.close(fig)
         
         # 齿向分析
         st.markdown("### Lead Analysis")
@@ -1465,6 +1473,7 @@ if uploaded_file is not None:
                 ax.legend()
                 ax.grid(True, alpha=0.3)
                 st.pyplot(fig)
+                        plt.close(fig)
         
         # 单齿扩展合并曲线
         st.markdown("---")
@@ -1604,6 +1613,7 @@ if uploaded_file is not None:
                     ax.grid(True, alpha=0.3)
                     ax.set_xlim(0, 360)
                     st.pyplot(fig)
+                        plt.close(fig)
                     
                     # 显示单齿扩展合并曲线的频谱图
                     if spectrum_components:
@@ -1648,6 +1658,7 @@ if uploaded_file is not None:
                             ax2.legend()
                             ax2.grid(True, alpha=0.3)
                             st.pyplot(fig2)
+                        plt.close(fig2)
                     
                     # 显示前5个齿的放大视图
                     st.markdown(f"**{side_name} - First 5 Teeth Zoom View**")
@@ -1687,6 +1698,7 @@ if uploaded_file is not None:
                         ax3.grid(True, alpha=0.3)
                         ax3.set_xlim(0, end_angle)
                         st.pyplot(fig3)
+                        plt.close(fig3)
         
         # 单齿齿向扩展合并曲线
         st.markdown("---")
@@ -1832,6 +1844,7 @@ if uploaded_file is not None:
                     ax.grid(True, alpha=0.3)
                     ax.set_xlim(0, 360)
                     st.pyplot(fig)
+                        plt.close(fig)
                     
                     # 显示频谱图
                     if spectrum_components:
@@ -1876,6 +1889,7 @@ if uploaded_file is not None:
                             ax2.legend()
                             ax2.grid(True, alpha=0.3)
                             st.pyplot(fig2)
+                        plt.close(fig2)
                     
                     # 显示前5个齿的放大视图
                     st.markdown(f"**{side_name} - First 5 Teeth Zoom View**")
@@ -1915,6 +1929,7 @@ if uploaded_file is not None:
                         ax3.grid(True, alpha=0.3)
                         ax3.set_xlim(0, end_angle)
                         st.pyplot(fig3)
+                        plt.close(fig3)
     
     elif page == '📉 合并曲线':
         st.markdown("## Merged Curve Analysis (0-360°)")
@@ -1927,6 +1942,15 @@ if uploaded_file is not None:
             'helix_left': 'Left Lead',
             'helix_right': 'Right Lead'
         }
+
+        # 按需计算分析结果
+        with st.spinner("正在计算合并曲线..."):
+            results = {
+                'profile_left': analyzer.analyze_profile('left', verbose=False),
+                'profile_right': analyzer.analyze_profile('right', verbose=False),
+                'helix_left': analyzer.analyze_helix('left', verbose=False),
+                'helix_right': analyzer.analyze_helix('right', verbose=False)
+            }
 
         for name, result in results.items():
             if result is None or len(result.angles) == 0:
@@ -1984,6 +2008,7 @@ if uploaded_file is not None:
                 ax.grid(True, alpha=0.3)
                 ax.set_xlim(0, 360)
                 st.pyplot(fig)
+                        plt.close(fig)
 
         st.markdown("---")
         st.markdown("### First 5 Teeth Zoom View")
@@ -2036,6 +2061,7 @@ if uploaded_file is not None:
                 ax.legend()
                 ax.grid(True, alpha=0.3)
                 st.pyplot(fig)
+                        plt.close(fig)
     
     elif page == '📊 频谱分析':
         st.markdown("## Spectrum Analysis")
@@ -2048,6 +2074,15 @@ if uploaded_file is not None:
             'helix_left': 'Left Lead',
             'helix_right': 'Right Lead'
         }
+
+        # 按需计算分析结果
+        with st.spinner("正在计算频谱分析..."):
+            results = {
+                'profile_left': analyzer.analyze_profile('left', verbose=False),
+                'profile_right': analyzer.analyze_profile('right', verbose=False),
+                'helix_left': analyzer.analyze_helix('left', verbose=False),
+                'helix_right': analyzer.analyze_helix('right', verbose=False)
+            }
 
         for name, result in results.items():
             if result is None or len(result.angles) == 0:
@@ -2096,6 +2131,7 @@ if uploaded_file is not None:
                 ax.legend()
                 ax.grid(True, alpha=0.3)
                 st.pyplot(fig)
+                        plt.close(fig)
     
     elif page == '🔍 三截面扭曲数据':
         st.markdown("## 三截面扭曲数据报告")
@@ -2251,6 +2287,7 @@ if uploaded_file is not None:
                         ax.set_xlabel(f'{section}', fontsize=10, fontweight='bold')
                         plt.tight_layout()
                         st.pyplot(fig)
+                        plt.close(fig)
         
         # 左齿面齿形数据表
         if profile_sections_data:
@@ -2298,6 +2335,7 @@ if uploaded_file is not None:
                         ax.set_xlabel(f'{section}', fontsize=10, fontweight='bold')
                         plt.tight_layout()
                         st.pyplot(fig)
+                        plt.close(fig)
         
         # 右齿面齿形数据表
         if profile_sections_data:
@@ -2345,6 +2383,7 @@ if uploaded_file is not None:
                         ax.set_xlabel(f'{section}', fontsize=10, fontweight='bold')
                         plt.tight_layout()
                         st.pyplot(fig)
+                        plt.close(fig)
         
         # 左齿面齿向数据表
         if helix_sections_data:
@@ -2392,6 +2431,7 @@ if uploaded_file is not None:
                         ax.set_xlabel(f'{section}', fontsize=10, fontweight='bold')
                         plt.tight_layout()
                         st.pyplot(fig)
+                        plt.close(fig)
         
         # 右齿面齿向数据表
         if helix_sections_data:
