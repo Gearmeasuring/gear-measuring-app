@@ -634,7 +634,9 @@ class RippleWavinessAnalyzer:
                         n = len(corrected)
                         
                         # 计算角度 - 使用展长和展角
-                        tooth_index = int(tooth_id) - 1
+                        # 从齿号字符串中提取数字部分（如 "1a" -> 1）
+                        tooth_num = int(re.match(r'(\d+)', str(tooth_id)).group(1)) if re.match(r'(\d+)', str(tooth_id)) else int(tooth_id)
+                        tooth_index = tooth_num - 1
                         tooth_base_angle = tooth_index * pitch_angle_deg
                         
                         # 使用展长直接计算展角
@@ -688,7 +690,9 @@ class RippleWavinessAnalyzer:
                         
                         # 计算角度 - 使用螺旋角公式
                         # 极角 = 2 * (评价范围内测量点 - 起评点) * tan(螺旋角) / 节圆直径
-                        tooth_index = int(tooth_id) - 1
+                        # 从齿号字符串中提取数字部分（如 "1a" -> 1）
+                        tooth_num = int(re.match(r'(\d+)', str(tooth_id)).group(1)) if re.match(r'(\d+)', str(tooth_id)) else int(tooth_id)
+                        tooth_index = tooth_num - 1
                         tooth_base_angle = tooth_index * pitch_angle_deg
                         
                         # 评价范围内的测量点位置（从0到评价范围长度）
@@ -758,7 +762,9 @@ class RippleWavinessAnalyzer:
                         n = len(corrected)
                         
                         # 计算角度 - 使用渐开线极角
-                        tooth_index = int(tooth_id) - 1
+                        # 从齿号字符串中提取数字部分（如 "1a" -> 1）
+                        tooth_num = int(re.match(r'(\d+)', str(tooth_id)).group(1)) if re.match(r'(\d+)', str(tooth_id)) else int(tooth_id)
+                        tooth_index = tooth_num - 1
                         tooth_base_angle = tooth_index * pitch_angle_deg
                         
                         # 计算展长范围
