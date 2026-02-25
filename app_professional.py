@@ -256,6 +256,15 @@ if uploaded_file is not None:
         profile_data = analyzer.reader.profile_data
         helix_data = analyzer.reader.helix_data
         
+        # 获取 b1, b2, d1, d2 用于计算范围
+        b1 = analyzer.reader.b1 if hasattr(analyzer.reader, 'b1') else 0
+        b2 = analyzer.reader.b2 if hasattr(analyzer.reader, 'b2') else 78
+        d1 = analyzer.reader.d1 if hasattr(analyzer.reader, 'd1') else 0
+        d2 = analyzer.reader.d2 if hasattr(analyzer.reader, 'd2') else 8
+        
+        face_width = abs(b2 - b1) if b1 is not None and b2 is not None else 78
+        profile_length = abs(d2 - d1) if d1 is not None and d2 is not None else 8
+        
         # 获取测量的齿号
         measured_teeth_profile = set()
         measured_teeth_helix = set()
@@ -282,18 +291,25 @@ if uploaded_file is not None:
                         best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
                         values = tooth_profiles[best_z]
                         
-                        fig, ax = plt.subplots(figsize=(3, 6))
-                        x_positions = np.linspace(0, 8, len(values))
+                        fig, ax = plt.subplots(figsize=(2.5, 5))
+                        x_positions = np.linspace(0, profile_length, len(values))
                         
-                        # 绘制曲线（类似PDF样式）
-                        ax.plot(values, x_positions, 'b-', linewidth=1.0, label='Profile')
+                        # PDF样式：黑色曲线，带网格
+                        ax.plot(values, x_positions, 'k-', linewidth=0.8)
                         
-                        # 添加网格
-                        ax.grid(True, linestyle='-', alpha=0.3, color='gray')
-                        ax.set_xlabel('Deviation (μm)', fontsize=7)
-                        ax.set_ylabel('Length (mm)', fontsize=7)
-                        ax.set_title(f'{tooth_id}', fontsize=9, fontweight='bold')
-                        ax.tick_params(axis='both', which='major', labelsize=6)
+                        # 添加评价范围标记线
+                        n_points = len(values)
+                        idx_start = int(n_points * 0.1)
+                        idx_end = int(n_points * 0.9)
+                        ax.axhline(y=x_positions[idx_start], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
+                        ax.axhline(y=x_positions[idx_end], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
+                        
+                        # 网格样式
+                        ax.grid(True, linestyle='-', alpha=0.5, color='gray', linewidth=0.3)
+                        ax.set_xlabel('μm', fontsize=6)
+                        ax.set_ylabel('mm', fontsize=6)
+                        ax.set_title(f'Tooth {tooth_id}', fontsize=8, fontweight='bold')
+                        ax.tick_params(axis='both', which='major', labelsize=5)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
@@ -310,15 +326,22 @@ if uploaded_file is not None:
                         best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
                         values = tooth_profiles[best_z]
                         
-                        fig, ax = plt.subplots(figsize=(3, 6))
-                        x_positions = np.linspace(0, 8, len(values))
+                        fig, ax = plt.subplots(figsize=(2.5, 5))
+                        x_positions = np.linspace(0, profile_length, len(values))
                         
-                        ax.plot(values, x_positions, 'b-', linewidth=1.0, label='Profile')
-                        ax.grid(True, linestyle='-', alpha=0.3, color='gray')
-                        ax.set_xlabel('Deviation (μm)', fontsize=7)
-                        ax.set_ylabel('Length (mm)', fontsize=7)
-                        ax.set_title(f'{tooth_id}', fontsize=9, fontweight='bold')
-                        ax.tick_params(axis='both', which='major', labelsize=6)
+                        ax.plot(values, x_positions, 'k-', linewidth=0.8)
+                        
+                        n_points = len(values)
+                        idx_start = int(n_points * 0.1)
+                        idx_end = int(n_points * 0.9)
+                        ax.axhline(y=x_positions[idx_start], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
+                        ax.axhline(y=x_positions[idx_end], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
+                        
+                        ax.grid(True, linestyle='-', alpha=0.5, color='gray', linewidth=0.3)
+                        ax.set_xlabel('μm', fontsize=6)
+                        ax.set_ylabel('mm', fontsize=6)
+                        ax.set_title(f'Tooth {tooth_id}', fontsize=8, fontweight='bold')
+                        ax.tick_params(axis='both', which='major', labelsize=5)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
@@ -335,17 +358,22 @@ if uploaded_file is not None:
                         best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
                         values = tooth_helix[best_d]
                         
-                        fig, ax = plt.subplots(figsize=(3, 6))
-                        # 从 b1 和 b2 计算齿宽
-                        face_width = abs(b2 - b1) if b1 is not None and b2 is not None else 78
+                        fig, ax = plt.subplots(figsize=(2.5, 5))
                         x_positions = np.linspace(0, face_width, len(values))
                         
-                        ax.plot(values, x_positions, 'b-', linewidth=1.0, label='Lead')
-                        ax.grid(True, linestyle='-', alpha=0.3, color='gray')
-                        ax.set_xlabel('Deviation (μm)', fontsize=7)
-                        ax.set_ylabel('Face Width (mm)', fontsize=7)
-                        ax.set_title(f'{tooth_id}', fontsize=9, fontweight='bold')
-                        ax.tick_params(axis='both', which='major', labelsize=6)
+                        ax.plot(values, x_positions, 'k-', linewidth=0.8)
+                        
+                        n_points = len(values)
+                        idx_start = int(n_points * 0.1)
+                        idx_end = int(n_points * 0.9)
+                        ax.axhline(y=x_positions[idx_start], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
+                        ax.axhline(y=x_positions[idx_end], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
+                        
+                        ax.grid(True, linestyle='-', alpha=0.5, color='gray', linewidth=0.3)
+                        ax.set_xlabel('μm', fontsize=6)
+                        ax.set_ylabel('mm', fontsize=6)
+                        ax.set_title(f'Tooth {tooth_id}', fontsize=8, fontweight='bold')
+                        ax.tick_params(axis='both', which='major', labelsize=5)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
@@ -362,17 +390,22 @@ if uploaded_file is not None:
                         best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
                         values = tooth_helix[best_d]
                         
-                        fig, ax = plt.subplots(figsize=(3, 6))
-                        # 从 b1 和 b2 计算齿宽
-                        face_width = abs(b2 - b1) if b1 is not None and b2 is not None else 78
+                        fig, ax = plt.subplots(figsize=(2.5, 5))
                         x_positions = np.linspace(0, face_width, len(values))
                         
-                        ax.plot(values, x_positions, 'b-', linewidth=1.0, label='Lead')
-                        ax.grid(True, linestyle='-', alpha=0.3, color='gray')
-                        ax.set_xlabel('Deviation (μm)', fontsize=7)
-                        ax.set_ylabel('Face Width (mm)', fontsize=7)
-                        ax.set_title(f'{tooth_id}', fontsize=9, fontweight='bold')
-                        ax.tick_params(axis='both', which='major', labelsize=6)
+                        ax.plot(values, x_positions, 'k-', linewidth=0.8)
+                        
+                        n_points = len(values)
+                        idx_start = int(n_points * 0.1)
+                        idx_end = int(n_points * 0.9)
+                        ax.axhline(y=x_positions[idx_start], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
+                        ax.axhline(y=x_positions[idx_end], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
+                        
+                        ax.grid(True, linestyle='-', alpha=0.5, color='gray', linewidth=0.3)
+                        ax.set_xlabel('μm', fontsize=6)
+                        ax.set_ylabel('mm', fontsize=6)
+                        ax.set_title(f'Tooth {tooth_id}', fontsize=8, fontweight='bold')
+                        ax.tick_params(axis='both', which='major', labelsize=5)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
