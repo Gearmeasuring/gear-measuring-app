@@ -2032,6 +2032,16 @@ if uploaded_file is not None:
                         plt.tight_layout()
                         st.pyplot(fig)
         
+        # 左齿面齿形数据表
+        if profile_sections_data:
+            st.markdown("**Left Profile 数据**")
+            df_left_profile = pd.DataFrame(profile_sections_data)[['Tooth', 'fHα_L', 'ffα_L', 'Fα_L', 'Ca_L']]
+            df_left_profile = df_left_profile.dropna()
+            if not df_left_profile.empty:
+                st.dataframe(df_left_profile.style.format({
+                    'fHα_L': '{:.2f}', 'ffα_L': '{:.2f}', 'Fα_L': '{:.2f}', 'Ca_L': '{:.2f}'
+                }), use_container_width=True, hide_index=True)
+        
         # ===== 右齿面齿形 (Right Profile) =====
         st.markdown("**Right Profile 右齿面齿形**")
         cols = st.columns(3)
@@ -2068,6 +2078,16 @@ if uploaded_file is not None:
                         ax.set_xlabel(f'{section}', fontsize=10, fontweight='bold')
                         plt.tight_layout()
                         st.pyplot(fig)
+        
+        # 右齿面齿形数据表
+        if profile_sections_data:
+            st.markdown("**Right Profile 数据**")
+            df_right_profile = pd.DataFrame(profile_sections_data)[['Tooth', 'fHα_R', 'ffα_R', 'Fα_R', 'Ca_R']]
+            df_right_profile = df_right_profile.dropna()
+            if not df_right_profile.empty:
+                st.dataframe(df_right_profile.style.format({
+                    'fHα_R': '{:.2f}', 'ffα_R': '{:.2f}', 'Fα_R': '{:.2f}', 'Ca_R': '{:.2f}'
+                }), use_container_width=True, hide_index=True)
         
         # ===== 左齿面齿向 (Left Helix) =====
         st.markdown("**Left Helix 左齿面齿向**")
@@ -2106,6 +2126,16 @@ if uploaded_file is not None:
                         plt.tight_layout()
                         st.pyplot(fig)
         
+        # 左齿面齿向数据表
+        if helix_sections_data:
+            st.markdown("**Left Helix 数据**")
+            df_left_helix = pd.DataFrame(helix_sections_data)[['Tooth', 'fHβ_L', 'ffβ_L', 'Fβ_L', 'Cb_L']]
+            df_left_helix = df_left_helix.dropna()
+            if not df_left_helix.empty:
+                st.dataframe(df_left_helix.style.format({
+                    'fHβ_L': '{:.2f}', 'ffβ_L': '{:.2f}', 'Fβ_L': '{:.2f}', 'Cb_L': '{:.2f}'
+                }), use_container_width=True, hide_index=True)
+        
         # ===== 右齿面齿向 (Right Helix) =====
         st.markdown("**Right Helix 右齿面齿向**")
         cols = st.columns(3)
@@ -2143,39 +2173,15 @@ if uploaded_file is not None:
                         plt.tight_layout()
                         st.pyplot(fig)
         
-        # 显示数据表 - 放在曲线图后面
-        st.markdown("---")
-        st.markdown("#### 数据汇总表")
-        
-        # Profile 齿形偏差表
-        st.markdown("**Profile 齿形偏差**")
-        if profile_sections_data:
-            df_profile = pd.DataFrame(profile_sections_data)
-            columns = ['Tooth', 'fHα_L', 'ffα_L', 'Fα_L', 'Ca_L', 'fHα_R', 'ffα_R', 'Fα_R', 'Ca_R']
-            available_columns = [col for col in columns if col in df_profile.columns]
-            df_profile = df_profile[available_columns]
-            
-            st.dataframe(df_profile.style.format({
-                'fHα_L': '{:.2f}', 'ffα_L': '{:.2f}', 'Fα_L': '{:.2f}', 'Ca_L': '{:.2f}',
-                'fHα_R': '{:.2f}', 'ffα_R': '{:.2f}', 'Fα_R': '{:.2f}', 'Ca_R': '{:.2f}'
-            }), use_container_width=True, hide_index=True)
-        else:
-            st.info("未找到齿形三截面数据")
-        
-        # Helix 齿向偏差表
-        st.markdown("**Helix 齿向偏差**")
+        # 右齿面齿向数据表
         if helix_sections_data:
-            df_helix = pd.DataFrame(helix_sections_data)
-            columns = ['Tooth', 'fHβ_L', 'ffβ_L', 'Fβ_L', 'Cb_L', 'fHβ_R', 'ffβ_R', 'Fβ_R', 'Cb_R']
-            available_columns = [col for col in columns if col in df_helix.columns]
-            df_helix = df_helix[available_columns]
-            
-            st.dataframe(df_helix.style.format({
-                'fHβ_L': '{:.2f}', 'ffβ_L': '{:.2f}', 'Fβ_L': '{:.2f}', 'Cb_L': '{:.2f}',
-                'fHβ_R': '{:.2f}', 'ffβ_R': '{:.2f}', 'Fβ_R': '{:.2f}', 'Cb_R': '{:.2f}'
-            }), use_container_width=True, hide_index=True)
-        else:
-            st.info("未找到齿向三截面数据")
+            st.markdown("**Right Helix 数据**")
+            df_right_helix = pd.DataFrame(helix_sections_data)[['Tooth', 'fHβ_R', 'ffβ_R', 'Fβ_R', 'Cb_R']]
+            df_right_helix = df_right_helix.dropna()
+            if not df_right_helix.empty:
+                st.dataframe(df_right_helix.style.format({
+                    'fHβ_R': '{:.2f}', 'ffβ_R': '{:.2f}', 'Fβ_R': '{:.2f}', 'Cb_R': '{:.2f}'
+                }), use_container_width=True, hide_index=True)
     
     # 清理临时文件
     if os.path.exists(temp_path):
