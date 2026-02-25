@@ -83,10 +83,18 @@ class MKAReader:
         self.helix_data = {'left': {}, 'right': {}}
         self.pitch_data = {'left': {}, 'right': {}}
         self.gear_params = None
-        self.d1 = 174.822
-        self.d2 = 180.603
-        self.b1 = 2.1
-        self.b2 = 39.9
+        # 评价范围 (Evaluation range)
+        self.d1 = 174.822  # 齿形评价起始直径
+        self.d2 = 180.603  # 齿形评价结束直径
+        # 测量范围 (Measurement range)
+        self.da = 174.24   # 齿形测量起始直径 (Tip area start)
+        self.de = 182.775  # 齿形测量结束直径 (Root area end)
+        # 齿向评价范围
+        self.b1 = 2.1      # 齿向评价起始位置
+        self.b2 = 39.9     # 齿向评价结束位置
+        # 齿向测量范围
+        self.ba = 0.0      # 齿向测量起始位置
+        self.be = 42.0     # 齿向测量结束位置
         self.profile_eval_range = None
         self.helix_eval_range = None
         
@@ -196,6 +204,7 @@ class MKAReader:
         if beta_match:
             helix_angle = float(beta_match.group(1))
 
+        # 解析齿形评价范围 d1, d2
         d1_match = re.search(r'Start\s+der\s+Auswertestrecke.*?d1\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
         if d1_match:
             self.d1 = float(d1_match.group(1))
@@ -203,7 +212,17 @@ class MKAReader:
         d2_match = re.search(r'Ende\s+der\s+Auswertestrecke.*?d2\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
         if d2_match:
             self.d2 = float(d2_match.group(1))
+        
+        # 解析齿形测量范围 da, de
+        da_match = re.search(r'Start\s|Messbereich.*?da\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
+        if da_match:
+            self.da = float(da_match.group(1))
+        
+        de_match = re.search(r'Ende\s+der\s|Messstrecke.*?de\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
+        if de_match:
+            self.de = float(de_match.group(1))
 
+        # 解析齿向评价范围 b1, b2
         b1_match = re.search(r'Auswerteanfang.*?b1\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
         if b1_match:
             self.b1 = float(b1_match.group(1))
@@ -211,6 +230,15 @@ class MKAReader:
         b2_match = re.search(r'Auswerteende.*?b2\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
         if b2_match:
             self.b2 = float(b2_match.group(1))
+        
+        # 解析齿向测量范围 ba, be
+        ba_match = re.search(r'Messanfang\s+\(unten\).*?ba\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
+        if ba_match:
+            self.ba = float(ba_match.group(1))
+        
+        be_match = re.search(r'Messende\s+\(oben\).*?be\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
+        if be_match:
+            self.be = float(be_match.group(1))
 
         # 解析其他信息
         self.info = {}
@@ -284,17 +312,17 @@ class MKAReader:
         )
         
         self.profile_eval_range = type('EvaluationRange', (), {
-            'meas_start': 0.0,
-            'meas_end': 8.0,
-            'eval_start': min(self.d1, self.d2),
-            'eval_end': max(self.d1, self.d2)
+            'meas_start': min(self.da, self.de),  # 测量起始直径
+            'meas_end': max(self.da, self.de),    # 测量结束直径
+            'eval_start': min(self.d1, self.d2),  # 评价起始直径
+            'eval_end': max(self.d1, self.d2)     # 评价结束直径
         })()
         
         self.helix_eval_range = type('EvaluationRange', (), {
-            'meas_start': 0.0,
-            'meas_end': max(self.b1, self.b2) + 5,
-            'eval_start': min(self.b1, self.b2),
-            'eval_end': max(self.b1, self.b2)
+            'meas_start': min(self.ba, self.be),  # 测量起始位置
+            'meas_end': max(self.ba, self.be),    # 测量结束位置
+            'eval_start': min(self.b1, self.b2),  # 评价起始位置
+            'eval_end': max(self.b1, self.b2)     # 评价结束位置
         })()
     
     def _parse_data_sections(self):
