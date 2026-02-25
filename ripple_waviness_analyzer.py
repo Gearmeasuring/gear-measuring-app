@@ -214,11 +214,11 @@ class MKAReader:
             self.d2 = float(d2_match.group(1))
         
         # 解析齿形测量范围 da, de
-        da_match = re.search(r'Start\s|Messbereich.*?da\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
+        da_match = re.search(r'Start\s+Messbereich.*?da\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
         if da_match:
             self.da = float(da_match.group(1))
         
-        de_match = re.search(r'Ende\s+der\s|Messstrecke.*?de\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
+        de_match = re.search(r'Ende\s+der\s+Messstrecke.*?de\s*\[mm\]\.*:\s*([\d.]+)', content, re.IGNORECASE)
         if de_match:
             self.de = float(de_match.group(1))
 
@@ -349,7 +349,7 @@ class MKAReader:
             # 匹配单行格式：Flankenlinie: Zahn-Nr.: X links
             helix_match = re.match(r'Flankenlinie:\s*Zahn-Nr\.?:\s*(\d+)([a-z]?)\s+(links|rechts|left|right)', line, re.IGNORECASE)
             if helix_match:
-                tooth_num = int(helix_match.group(1))
+                tooth_num_str = helix_match.group(1) + helix_match.group(2)  # 包含后缀如 "1a"
                 side_str = helix_match.group(3).lower()
                 side = 'left' if side_str in ['links', 'left'] else 'right'
                 
@@ -358,9 +358,9 @@ class MKAReader:
                 
                 values = self._parse_data_values(lines, i + 1)
                 if values is not None and len(values) > 0:
-                    if tooth_num not in self.helix_data[side]:
-                        self.helix_data[side][tooth_num] = {}
-                    self.helix_data[side][tooth_num][d_pos] = values
+                    if tooth_num_str not in self.helix_data[side]:
+                        self.helix_data[side][tooth_num_str] = {}
+                    self.helix_data[side][tooth_num_str][d_pos] = values
                 i += 1
                 continue
             
@@ -368,7 +368,7 @@ class MKAReader:
             if current_section == 'helix':
                 helix_data_match = re.match(r'Zahn-Nr\.?:\s*(\d+)([a-z]?)\s+(links|rechts|left|right)', line, re.IGNORECASE)
                 if helix_data_match:
-                    tooth_num = int(helix_data_match.group(1))
+                    tooth_num_str = helix_data_match.group(1) + helix_data_match.group(2)  # 包含后缀如 "1a"
                     side_str = helix_data_match.group(3).lower()
                     side = 'left' if side_str in ['links', 'left'] else 'right'
                     
@@ -377,16 +377,16 @@ class MKAReader:
                     
                     values = self._parse_data_values(lines, i + 1)
                     if values is not None and len(values) > 0:
-                        if tooth_num not in self.helix_data[side]:
-                            self.helix_data[side][tooth_num] = {}
-                        self.helix_data[side][tooth_num][d_pos] = values
+                        if tooth_num_str not in self.helix_data[side]:
+                            self.helix_data[side][tooth_num_str] = {}
+                        self.helix_data[side][tooth_num_str][d_pos] = values
                     i += 1
                     continue
             
             # 匹配单行格式：Profil: Zahn-Nr.: X rechts
             profile_match = re.match(r'Profil:\s*Zahn-Nr\.?:\s*(\d+)([a-z]?)\s+(links|rechts|left|right)', line, re.IGNORECASE)
             if profile_match:
-                tooth_num = int(profile_match.group(1))
+                tooth_num_str = profile_match.group(1) + profile_match.group(2)  # 包含后缀如 "1a"
                 side_str = profile_match.group(3).lower()
                 side = 'left' if side_str in ['links', 'left'] else 'right'
                 
@@ -395,9 +395,9 @@ class MKAReader:
                 
                 values = self._parse_data_values(lines, i + 1)
                 if values is not None and len(values) > 0:
-                    if tooth_num not in self.profile_data[side]:
-                        self.profile_data[side][tooth_num] = {}
-                    self.profile_data[side][tooth_num][z_pos] = values
+                    if tooth_num_str not in self.profile_data[side]:
+                        self.profile_data[side][tooth_num_str] = {}
+                    self.profile_data[side][tooth_num_str][z_pos] = values
                 i += 1
                 continue
             
@@ -405,7 +405,7 @@ class MKAReader:
             if current_section == 'profile':
                 profile_data_match = re.match(r'Zahn-Nr\.?:\s*(\d+)([a-z]?)\s+(links|rechts|left|right)', line, re.IGNORECASE)
                 if profile_data_match:
-                    tooth_num = int(profile_data_match.group(1))
+                    tooth_num_str = profile_data_match.group(1) + profile_data_match.group(2)  # 包含后缀如 "1a"
                     side_str = profile_data_match.group(3).lower()
                     side = 'left' if side_str in ['links', 'left'] else 'right'
                     
@@ -414,9 +414,9 @@ class MKAReader:
                     
                     values = self._parse_data_values(lines, i + 1)
                     if values is not None and len(values) > 0:
-                        if tooth_num not in self.profile_data[side]:
-                            self.profile_data[side][tooth_num] = {}
-                        self.profile_data[side][tooth_num][z_pos] = values
+                        if tooth_num_str not in self.profile_data[side]:
+                            self.profile_data[side][tooth_num_str] = {}
+                        self.profile_data[side][tooth_num_str][z_pos] = values
                     i += 1
                     continue
             
