@@ -581,10 +581,25 @@ if uploaded_file is not None:
     elif page == '📈 单齿分析':
         st.markdown("## Single Tooth Analysis")
 
-        selected_tooth = st.number_input("Select Tooth Number", min_value=1, max_value=200, value=1)
-        
         profile_data = analyzer.reader.profile_data
         helix_data = analyzer.reader.helix_data
+        
+        # 获取所有有测量数据的齿
+        measured_teeth = set()
+        for side in ['left', 'right']:
+            if side in profile_data:
+                measured_teeth.update(profile_data[side].keys())
+            if side in helix_data:
+                measured_teeth.update(helix_data[side].keys())
+        
+        # 按顺序排列有测量数据的齿
+        measured_teeth_list = sorted(list(measured_teeth))
+        
+        if not measured_teeth_list:
+            st.warning("未找到测量数据")
+        else:
+            # 使用下拉框选择有测量数据的齿
+            selected_tooth = st.selectbox("Select Tooth Number", options=measured_teeth_list)
         
         # 获取齿轮参数
         ze = gear_params.teeth_count if gear_params else 87
