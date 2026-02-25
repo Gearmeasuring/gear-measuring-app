@@ -371,45 +371,41 @@ if uploaded_file is not None:
             # 左齿面曲线图
             if profile_teeth_left:
                 st.markdown("**Left Flank**")
-                cols = st.columns(min(6, len(profile_teeth_left)))
+                # 显示所有齿，每行最多8个
+                n_cols = min(8, len(profile_teeth_left))
                 left_profile_results = []
                 
-                for i, tooth_id in enumerate(profile_teeth_left[:len(cols)]):
-                    with cols[i]:
+                for i, tooth_id in enumerate(profile_teeth_left):
+                    if i % n_cols == 0:
+                        cols = st.columns(n_cols)
+                    
+                    with cols[i % n_cols]:
                         tooth_profiles = profile_data['left'][tooth_id]
                         helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
                         best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
                         values = np.array(tooth_profiles[best_z])
                         
-                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
+                        fig, ax = plt.subplots(figsize=(1.5, 4))
                         y_positions = np.linspace(d1, d2, len(values))
                         
-                        # 绘制曲线（红色）
-                        ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=0.8)
+                        ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=0.6)
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.3)
                         
-                        # 零点垂直线
-                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
-                        
-                        # 标记起评点和终评点（三角形）
                         n = len(values)
                         idx_eval_start = int(n * 0.15)
                         idx_eval_end = int(n * 0.85)
-                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=5, color='green', markerfacecolor='green')
-                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=5, color='orange', markerfacecolor='orange')
-                        
-                        # Y轴刻度
-                        ax.set_yticks([d1, d2])
-                        ax.set_yticklabels([f'{d1:.1f}mm d1', f'{d2:.1f}mm d2'], fontsize=5)
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=3, color='green', markerfacecolor='green')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=3, color='orange', markerfacecolor='orange')
                         
                         ax.set_xlim(0.5, 1.5)
-                        ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
+                        ax.set_xlabel(f'{tooth_id}', fontsize=6, fontweight='bold')
                         ax.set_xticks([])
-                        ax.grid(True, axis='y', linestyle=':', linewidth=0.5, color='gray')
+                        ax.set_yticks([])
+                        ax.set_frame_on(False)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
                         
-                        # 计算偏差
                         F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
                         if F_a is not None:
                             left_profile_results.append({
@@ -420,47 +416,51 @@ if uploaded_file is not None:
                                 'Ca': Ca
                             })
                 
-                # 左齿面偏差表格
+                # 左齿面偏差表格 - PDF格式
                 if left_profile_results:
                     df_left = pd.DataFrame(left_profile_results)
+                    # 计算平均值和最大值
                     mean_row = {'Tooth': 'Mean'}
+                    max_row = {'Tooth': 'Max'}
                     for col in ['fHα', 'ffα', 'Fα', 'Ca']:
                         mean_row[col] = df_left[col].mean()
-                    df_left = pd.concat([df_left, pd.DataFrame([mean_row])], ignore_index=True)
-                    st.table(df_left.style.format({col: '{:.1f}' for col in ['fHα', 'ffα', 'Fα', 'Ca']}))
+                        max_row[col] = df_left[col].max()
+                    df_left = pd.concat([df_left, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
+                    st.dataframe(df_left.style.format({col: '{:.2f}' for col in ['fHα', 'ffα', 'Fα', 'Ca']}), use_container_width=True, hide_index=True)
             
             # 右齿面曲线图
             if profile_teeth_right:
                 st.markdown("**Right Flank**")
-                cols = st.columns(min(6, len(profile_teeth_right)))
+                n_cols = min(8, len(profile_teeth_right))
                 right_profile_results = []
                 
-                for i, tooth_id in enumerate(profile_teeth_right[:len(cols)]):
-                    with cols[i]:
+                for i, tooth_id in enumerate(profile_teeth_right):
+                    if i % n_cols == 0:
+                        cols = st.columns(n_cols)
+                    
+                    with cols[i % n_cols]:
                         tooth_profiles = profile_data['right'][tooth_id]
                         helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
                         best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
                         values = np.array(tooth_profiles[best_z])
                         
-                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
+                        fig, ax = plt.subplots(figsize=(1.5, 4))
                         y_positions = np.linspace(d1, d2, len(values))
                         
-                        ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=0.8)
-                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=0.6)
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.3)
                         
                         n = len(values)
                         idx_eval_start = int(n * 0.15)
                         idx_eval_end = int(n * 0.85)
-                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=5, color='green', markerfacecolor='green')
-                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=5, color='orange', markerfacecolor='orange')
-                        
-                        ax.set_yticks([d1, d2])
-                        ax.set_yticklabels([f'{d1:.1f}mm d1', f'{d2:.1f}mm d2'], fontsize=5)
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=3, color='green', markerfacecolor='green')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=3, color='orange', markerfacecolor='orange')
                         
                         ax.set_xlim(0.5, 1.5)
-                        ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
+                        ax.set_xlabel(f'{tooth_id}', fontsize=6, fontweight='bold')
                         ax.set_xticks([])
-                        ax.grid(True, axis='y', linestyle=':', linewidth=0.5, color='gray')
+                        ax.set_yticks([])
+                        ax.set_frame_on(False)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
@@ -478,10 +478,12 @@ if uploaded_file is not None:
                 if right_profile_results:
                     df_right = pd.DataFrame(right_profile_results)
                     mean_row = {'Tooth': 'Mean'}
+                    max_row = {'Tooth': 'Max'}
                     for col in ['fHα', 'ffα', 'Fα', 'Ca']:
                         mean_row[col] = df_right[col].mean()
-                    df_right = pd.concat([df_right, pd.DataFrame([mean_row])], ignore_index=True)
-                    st.table(df_right.style.format({col: '{:.1f}' for col in ['fHα', 'ffα', 'Fα', 'Ca']}))
+                        max_row[col] = df_right[col].max()
+                    df_right = pd.concat([df_right, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
+                    st.dataframe(df_right.style.format({col: '{:.2f}' for col in ['fHα', 'ffα', 'Fα', 'Ca']}), use_container_width=True, hide_index=True)
         
         # ========== Helix 齿向分析 ==========
         st.markdown("#### Helix")
@@ -494,35 +496,36 @@ if uploaded_file is not None:
             # 左齿面曲线图
             if helix_teeth_left:
                 st.markdown("**Left Flank**")
-                cols = st.columns(min(6, len(helix_teeth_left)))
+                n_cols = min(8, len(helix_teeth_left))
                 left_helix_results = []
                 
-                for i, tooth_id in enumerate(helix_teeth_left[:len(cols)]):
-                    with cols[i]:
+                for i, tooth_id in enumerate(helix_teeth_left):
+                    if i % n_cols == 0:
+                        cols = st.columns(n_cols)
+                    
+                    with cols[i % n_cols]:
                         tooth_helix = helix_data['left'][tooth_id]
                         profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
                         best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
                         values = np.array(tooth_helix[best_d])
                         
-                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
+                        fig, ax = plt.subplots(figsize=(1.5, 4))
                         y_positions = np.linspace(b1, b2, len(values))
                         
-                        ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=0.8)
-                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=0.6)
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.3)
                         
                         n = len(values)
                         idx_eval_start = int(n * 0.15)
                         idx_eval_end = int(n * 0.85)
-                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=5, color='green', markerfacecolor='green')
-                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=5, color='orange', markerfacecolor='orange')
-                        
-                        ax.set_yticks([b1, b2])
-                        ax.set_yticklabels([f'{b1:.1f}mm b1', f'{b2:.1f}mm b2'], fontsize=5)
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=3, color='green', markerfacecolor='green')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=3, color='orange', markerfacecolor='orange')
                         
                         ax.set_xlim(0.5, 1.5)
-                        ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
+                        ax.set_xlabel(f'{tooth_id}', fontsize=6, fontweight='bold')
                         ax.set_xticks([])
-                        ax.grid(True, axis='y', linestyle=':', linewidth=0.5, color='gray')
+                        ax.set_yticks([])
+                        ax.set_frame_on(False)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
@@ -540,43 +543,46 @@ if uploaded_file is not None:
                 if left_helix_results:
                     df_left_h = pd.DataFrame(left_helix_results)
                     mean_row = {'Tooth': 'Mean'}
+                    max_row = {'Tooth': 'Max'}
                     for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']:
                         mean_row[col] = df_left_h[col].mean()
-                    df_left_h = pd.concat([df_left_h, pd.DataFrame([mean_row])], ignore_index=True)
-                    st.table(df_left_h.style.format({col: '{:.1f}' for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']}))
+                        max_row[col] = df_left_h[col].max()
+                    df_left_h = pd.concat([df_left_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
+                    st.dataframe(df_left_h.style.format({col: '{:.2f}' for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']}), use_container_width=True, hide_index=True)
             
             # 右齿面曲线图
             if helix_teeth_right:
                 st.markdown("**Right Flank**")
-                cols = st.columns(min(6, len(helix_teeth_right)))
+                n_cols = min(8, len(helix_teeth_right))
                 right_helix_results = []
                 
-                for i, tooth_id in enumerate(helix_teeth_right[:len(cols)]):
-                    with cols[i]:
+                for i, tooth_id in enumerate(helix_teeth_right):
+                    if i % n_cols == 0:
+                        cols = st.columns(n_cols)
+                    
+                    with cols[i % n_cols]:
                         tooth_helix = helix_data['right'][tooth_id]
                         profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
                         best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
                         values = np.array(tooth_helix[best_d])
                         
-                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
+                        fig, ax = plt.subplots(figsize=(1.5, 4))
                         y_positions = np.linspace(b1, b2, len(values))
                         
-                        ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=0.8)
-                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=0.6)
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.3)
                         
                         n = len(values)
                         idx_eval_start = int(n * 0.15)
                         idx_eval_end = int(n * 0.85)
-                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=5, color='green', markerfacecolor='green')
-                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=5, color='orange', markerfacecolor='orange')
-                        
-                        ax.set_yticks([b1, b2])
-                        ax.set_yticklabels([f'{b1:.1f}mm b1', f'{b2:.1f}mm b2'], fontsize=5)
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=3, color='green', markerfacecolor='green')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=3, color='orange', markerfacecolor='orange')
                         
                         ax.set_xlim(0.5, 1.5)
-                        ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
+                        ax.set_xlabel(f'{tooth_id}', fontsize=6, fontweight='bold')
                         ax.set_xticks([])
-                        ax.grid(True, axis='y', linestyle=':', linewidth=0.5, color='gray')
+                        ax.set_yticks([])
+                        ax.set_frame_on(False)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
@@ -594,10 +600,12 @@ if uploaded_file is not None:
                 if right_helix_results:
                     df_right_h = pd.DataFrame(right_helix_results)
                     mean_row = {'Tooth': 'Mean'}
+                    max_row = {'Tooth': 'Max'}
                     for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']:
                         mean_row[col] = df_right_h[col].mean()
-                    df_right_h = pd.concat([df_right_h, pd.DataFrame([mean_row])], ignore_index=True)
-                    st.table(df_right_h.style.format({col: '{:.1f}' for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']}))
+                        max_row[col] = df_right_h[col].max()
+                    df_right_h = pd.concat([df_right_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
+                    st.dataframe(df_right_h.style.format({col: '{:.2f}' for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']}), use_container_width=True, hide_index=True)
             
     elif page == '📊 周节详细报表':
         st.markdown("## Gear Spacing Report - 周节详细报表")
