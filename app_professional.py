@@ -160,6 +160,22 @@ if uploaded_file is not None:
     helix_eval = analyzer.reader.helix_eval_range
     gear_params = analyzer.gear_params
     
+    # 获取数据 - 所有页面共用
+    profile_data = analyzer.reader.profile_data
+    helix_data = analyzer.reader.helix_data
+    
+    # 获取 b1, b2, d1, d2 用于计算范围
+    b1 = analyzer.reader.b1 if hasattr(analyzer.reader, 'b1') else 0
+    b2 = analyzer.reader.b2 if hasattr(analyzer.reader, 'b2') else 78
+    d1 = analyzer.reader.d1 if hasattr(analyzer.reader, 'd1') else 0
+    d2 = analyzer.reader.d2 if hasattr(analyzer.reader, 'd2') else 8
+    
+    # 获取测量范围 da, de, ba, be
+    da = analyzer.reader.da if hasattr(analyzer.reader, 'da') else d1
+    de = analyzer.reader.de if hasattr(analyzer.reader, 'de') else d2
+    ba = analyzer.reader.ba if hasattr(analyzer.reader, 'ba') else b1
+    be = analyzer.reader.be if hasattr(analyzer.reader, 'be') else b2
+    
     # 同时尝试使用 gear_analysis_refactored 获取额外信息
     if GEAR_ANALYSIS_AVAILABLE:
         try:
@@ -252,21 +268,6 @@ if uploaded_file is not None:
         
         st.markdown("---")
         st.markdown("### Gear Profile/Lead Report")
-        
-        profile_data = analyzer.reader.profile_data
-        helix_data = analyzer.reader.helix_data
-        
-        # 获取 b1, b2, d1, d2 用于计算范围
-        b1 = analyzer.reader.b1 if hasattr(analyzer.reader, 'b1') else 0
-        b2 = analyzer.reader.b2 if hasattr(analyzer.reader, 'b2') else 78
-        d1 = analyzer.reader.d1 if hasattr(analyzer.reader, 'd1') else 0
-        d2 = analyzer.reader.d2 if hasattr(analyzer.reader, 'd2') else 8
-        
-        # 获取测量范围 da, de, ba, be
-        da = analyzer.reader.da if hasattr(analyzer.reader, 'da') else d1
-        de = analyzer.reader.de if hasattr(analyzer.reader, 'de') else d2
-        ba = analyzer.reader.ba if hasattr(analyzer.reader, 'ba') else b1
-        be = analyzer.reader.be if hasattr(analyzer.reader, 'be') else b2
         
         face_width = abs(b2 - b1) if b1 is not None and b2 is not None else 78
         profile_length = abs(d2 - d1) if d1 is not None and d2 is not None else 8
@@ -1050,9 +1051,6 @@ if uploaded_file is not None:
     elif page == '📈 单齿分析':
         st.markdown("## Single Tooth Analysis")
 
-        profile_data = analyzer.reader.profile_data
-        helix_data = analyzer.reader.helix_data
-        
         # 获取所有有测量数据的齿
         measured_teeth = set()
         for side in ['left', 'right']:
