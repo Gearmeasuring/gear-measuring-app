@@ -198,6 +198,68 @@ if uploaded_file is not None:
             return (num, suffix)
         return (0, str(tooth_id))
     
+    # DIN 3962 公差表 - 所有页面共用
+    DIN3962_PROFILE_TOLERANCES = {
+        1: {'fHa': 3.0, 'ffa': 4.0, 'Fa': 5.0},
+        2: {'fHa': 4.0, 'ffa': 6.0, 'Fa': 7.0},
+        3: {'fHa': 5.5, 'ffa': 8.0, 'Fa': 10.0},
+        4: {'fHa': 8.0, 'ffa': 12.0, 'Fa': 14.0},
+        5: {'fHa': 11.0, 'ffa': 16.0, 'Fa': 20.0},
+        6: {'fHa': 16.0, 'ffa': 22.0, 'Fa': 28.0},
+        7: {'fHa': 22.0, 'ffa': 32.0, 'Fa': 40.0},
+        8: {'fHa': 28.0, 'ffa': 45.0, 'Fa': 56.0},
+        9: {'fHa': 40.0, 'ffa': 63.0, 'Fa': 80.0},
+        10: {'fHa': 71.0, 'ffa': 110.0, 'Fa': 125.0},
+        11: {'fHa': 110.0, 'ffa': 160.0, 'Fa': 200.0},
+        12: {'fHa': 180.0, 'ffa': 250.0, 'Fa': 320.0}
+    }
+    
+    DIN3962_LEAD_TOLERANCES = {
+        1: {'fHb': 2.5, 'ffb': 2.0, 'Fb': 3.0},
+        2: {'fHb': 3.5, 'ffb': 5.0, 'Fb': 6.0},
+        3: {'fHb': 4.5, 'ffb': 7.0, 'Fb': 8.0},
+        4: {'fHb': 6.0, 'ffb': 8.0, 'Fb': 10.0},
+        5: {'fHb': 8.0, 'ffb': 9.0, 'Fb': 12.0},
+        6: {'fHb': 11.0, 'ffb': 12.0, 'Fb': 16.0},
+        7: {'fHb': 16.0, 'ffb': 16.0, 'Fb': 22.0},
+        8: {'fHb': 22.0, 'ffb': 25.0, 'Fb': 32.0},
+        9: {'fHb': 32.0, 'ffb': 40.0, 'Fb': 50.0},
+        10: {'fHb': 50.0, 'ffb': 63.0, 'Fb': 80.0},
+        11: {'fHb': 80.0, 'ffb': 100.0, 'Fb': 125.0},
+        12: {'fHb': 125.0, 'ffb': 160.0, 'Fb': 200.0}
+    }
+    
+    DEFAULT_QUALITY = 5  # 默认质量等级
+    
+    def get_tolerance(param_type, param_code, quality=DEFAULT_QUALITY):
+        """获取公差值"""
+        if param_type == 'profile':
+            table = DIN3962_PROFILE_TOLERANCES
+        elif param_type == 'lead':
+            table = DIN3962_LEAD_TOLERANCES
+        else:
+            return None
+        if quality in table and param_code in table[quality]:
+            return table[quality][param_code]
+        return None
+    
+    def calculate_quality_grade(measured_value, param_type, param_code):
+        """根据测量值计算质量等级"""
+        if measured_value is None:
+            return None
+        abs_value = abs(measured_value)
+        if param_type == 'profile':
+            table = DIN3962_PROFILE_TOLERANCES
+        elif param_type == 'lead':
+            table = DIN3962_LEAD_TOLERANCES
+        else:
+            return None
+        for quality in range(1, 13):
+            if quality in table and param_code in table[quality]:
+                if abs_value <= table[quality][param_code]:
+                    return quality
+        return 12
+    
     # 辅助函数：计算偏差参数（与PDF报告完全一致）- 所有页面共用
     def calc_profile_deviations(values):
         """计算齿形偏差参数 - 与PDF报告算法一致"""
@@ -468,21 +530,42 @@ if uploaded_file is not None:
                                 'Ca': Ca
                             })
                 
-                # 左齿面偏差表格 - PDF格式
+                # 左齿面偏差表格 - 带公差和质量等级
                 if left_profile_results:
                     df_left = pd.DataFrame(left_profile_results)
+                    
                     # 计算平均值和最大值
                     mean_row = {'Tooth': 'Mean'}
                     max_row = {'Tooth': 'Max'}
                     for col in ['fHα', 'ffα', 'Fα', 'Ca']:
                         mean_row[col] = df_left[col].mean()
                         max_row[col] = df_left[col].max()
-                    # fHαm 是 fHα 的平均值
                     mean_row['fHαm'] = df_left['fHα'].mean()
                     max_row['fHαm'] = np.nan
                     df_left['fHαm'] = np.nan
-                    df_left = pd.concat([df_left, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
-                    st.dataframe(df_left[['Tooth', 'fHα', 'fHαm', 'ffα', 'Fα', 'Ca']].style.format({col: '{:.2f}' for col in ['fHα', 'fHαm', 'ffα', 'Fα', 'Ca']}), use_container_width=True, hide_index=True)
+                    
+                    # 添加公差和质量等级列
+                    tol_row = {'Tooth': f'Lim.{DEFAULT_QUALITY}'}
+                    for col, tol_code in [('fHα', 'fHa'), ('ffα', 'ffa'), ('Fα', 'Fa')]:
+                        tol_val = get_tolerance('profile', tol_code, DEFAULT_QUALITY)
+                        tol_row[col] = f'±{int(tol_val)}' if tol_val else ''
+                    tol_row['Ca'] = ''
+                    tol_row['fHαm'] = ''
+                    
+                    df_left = pd.concat([df_left, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
+                    
+                    # 在最大值行添加质量等级标注
+                    for col, tol_code in [('fHα', 'fHa'), ('ffα', 'ffa'), ('Fα', 'Fa')]:
+                        max_val = max_row[col]
+                        if max_val is not None and not np.isnan(max_val):
+                            quality = calculate_quality_grade(max_val, 'profile', tol_code)
+                            if quality:
+                                max_row[col] = f"{max_val:.2f} Q{quality}"
+                                df_left.loc[df_left['Tooth'] == 'Max', col] = max_row[col]
+                    
+                    st.dataframe(df_left[['Tooth', 'fHα', 'fHαm', 'ffα', 'Fα', 'Ca']].style.format({
+                        'fHα': '{:.2f}', 'fHαm': '{:.2f}', 'ffα': '{:.2f}', 'Fα': '{:.2f}', 'Ca': '{:.2f}'
+                    }, na_rep=''), use_container_width=True, hide_index=True)
             
             # 右齿面曲线图
             if profile_teeth_right:
@@ -566,8 +649,11 @@ if uploaded_file is not None:
                                 'Ca': Ca
                             })
                 
+                # 右齿面偏差表格 - 带公差和质量等级
                 if right_profile_results:
                     df_right = pd.DataFrame(right_profile_results)
+                    
+                    # 计算平均值和最大值
                     mean_row = {'Tooth': 'Mean'}
                     max_row = {'Tooth': 'Max'}
                     for col in ['fHα', 'ffα', 'Fα', 'Ca']:
@@ -576,8 +662,29 @@ if uploaded_file is not None:
                     mean_row['fHαm'] = df_right['fHα'].mean()
                     max_row['fHαm'] = np.nan
                     df_right['fHαm'] = np.nan
-                    df_right = pd.concat([df_right, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
-                    st.dataframe(df_right[['Tooth', 'fHα', 'fHαm', 'ffα', 'Fα', 'Ca']].style.format({col: '{:.2f}' for col in ['fHα', 'fHαm', 'ffα', 'Fα', 'Ca']}), use_container_width=True, hide_index=True)
+                    
+                    # 添加公差和质量等级列
+                    tol_row = {'Tooth': f'Lim.{DEFAULT_QUALITY}'}
+                    for col, tol_code in [('fHα', 'fHa'), ('ffα', 'ffa'), ('Fα', 'Fa')]:
+                        tol_val = get_tolerance('profile', tol_code, DEFAULT_QUALITY)
+                        tol_row[col] = f'±{int(tol_val)}' if tol_val else ''
+                    tol_row['Ca'] = ''
+                    tol_row['fHαm'] = ''
+                    
+                    df_right = pd.concat([df_right, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
+                    
+                    # 在最大值行添加质量等级标注
+                    for col, tol_code in [('fHα', 'fHa'), ('ffα', 'ffa'), ('Fα', 'Fa')]:
+                        max_val = max_row[col]
+                        if max_val is not None and not np.isnan(max_val):
+                            quality = calculate_quality_grade(max_val, 'profile', tol_code)
+                            if quality:
+                                max_row[col] = f"{max_val:.2f} Q{quality}"
+                                df_right.loc[df_right['Tooth'] == 'Max', col] = max_row[col]
+                    
+                    st.dataframe(df_right[['Tooth', 'fHα', 'fHαm', 'ffα', 'Fα', 'Ca']].style.format({
+                        'fHα': '{:.2f}', 'fHαm': '{:.2f}', 'ffα': '{:.2f}', 'Fα': '{:.2f}', 'Ca': '{:.2f}'
+                    }, na_rep=''), use_container_width=True, hide_index=True)
         
         # ========== Helix 齿向分析 ==========
         st.markdown("#### Helix")
@@ -669,8 +776,11 @@ if uploaded_file is not None:
                                 'Cb': Cb
                             })
                 
+                # 左齿面齿向偏差表格 - 带公差和质量等级
                 if left_helix_results:
                     df_left_h = pd.DataFrame(left_helix_results)
+                    
+                    # 计算平均值和最大值
                     mean_row = {'Tooth': 'Mean'}
                     max_row = {'Tooth': 'Max'}
                     for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']:
@@ -679,8 +789,29 @@ if uploaded_file is not None:
                     mean_row['fHβm'] = df_left_h['fHβ'].mean()
                     max_row['fHβm'] = np.nan
                     df_left_h['fHβm'] = np.nan
-                    df_left_h = pd.concat([df_left_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
-                    st.dataframe(df_left_h[['Tooth', 'fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']].style.format({col: '{:.2f}' for col in ['fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']}), use_container_width=True, hide_index=True)
+                    
+                    # 添加公差和质量等级列
+                    tol_row = {'Tooth': f'Lim.{DEFAULT_QUALITY}'}
+                    for col, tol_code in [('fHβ', 'fHb'), ('ffβ', 'ffb'), ('Fβ', 'Fb')]:
+                        tol_val = get_tolerance('lead', tol_code, DEFAULT_QUALITY)
+                        tol_row[col] = f'±{int(tol_val)}' if tol_val else ''
+                    tol_row['Cb'] = ''
+                    tol_row['fHβm'] = ''
+                    
+                    df_left_h = pd.concat([df_left_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
+                    
+                    # 在最大值行添加质量等级标注
+                    for col, tol_code in [('fHβ', 'fHb'), ('ffβ', 'ffb'), ('Fβ', 'Fb')]:
+                        max_val = max_row[col]
+                        if max_val is not None and not np.isnan(max_val):
+                            quality = calculate_quality_grade(max_val, 'lead', tol_code)
+                            if quality:
+                                max_row[col] = f"{max_val:.2f} Q{quality}"
+                                df_left_h.loc[df_left_h['Tooth'] == 'Max', col] = max_row[col]
+                    
+                    st.dataframe(df_left_h[['Tooth', 'fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']].style.format({
+                        'fHβ': '{:.2f}', 'fHβm': '{:.2f}', 'ffβ': '{:.2f}', 'Fβ': '{:.2f}', 'Cb': '{:.2f}'
+                    }, na_rep=''), use_container_width=True, hide_index=True)
             
             # 右齿面曲线图
             if helix_teeth_right:
@@ -764,8 +895,11 @@ if uploaded_file is not None:
                                 'Cb': Cb
                             })
                 
+                # 右齿面齿向偏差表格 - 带公差和质量等级
                 if right_helix_results:
                     df_right_h = pd.DataFrame(right_helix_results)
+                    
+                    # 计算平均值和最大值
                     mean_row = {'Tooth': 'Mean'}
                     max_row = {'Tooth': 'Max'}
                     for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']:
@@ -774,8 +908,29 @@ if uploaded_file is not None:
                     mean_row['fHβm'] = df_right_h['fHβ'].mean()
                     max_row['fHβm'] = np.nan
                     df_right_h['fHβm'] = np.nan
-                    df_right_h = pd.concat([df_right_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
-                    st.dataframe(df_right_h[['Tooth', 'fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']].style.format({col: '{:.2f}' for col in ['fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']}), use_container_width=True, hide_index=True)
+                    
+                    # 添加公差和质量等级列
+                    tol_row = {'Tooth': f'Lim.{DEFAULT_QUALITY}'}
+                    for col, tol_code in [('fHβ', 'fHb'), ('ffβ', 'ffb'), ('Fβ', 'Fb')]:
+                        tol_val = get_tolerance('lead', tol_code, DEFAULT_QUALITY)
+                        tol_row[col] = f'±{int(tol_val)}' if tol_val else ''
+                    tol_row['Cb'] = ''
+                    tol_row['fHβm'] = ''
+                    
+                    df_right_h = pd.concat([df_right_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
+                    
+                    # 在最大值行添加质量等级标注
+                    for col, tol_code in [('fHβ', 'fHb'), ('ffβ', 'ffb'), ('Fβ', 'Fb')]:
+                        max_val = max_row[col]
+                        if max_val is not None and not np.isnan(max_val):
+                            quality = calculate_quality_grade(max_val, 'lead', tol_code)
+                            if quality:
+                                max_row[col] = f"{max_val:.2f} Q{quality}"
+                                df_right_h.loc[df_right_h['Tooth'] == 'Max', col] = max_row[col]
+                    
+                    st.dataframe(df_right_h[['Tooth', 'fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']].style.format({
+                        'fHβ': '{:.2f}', 'fHβm': '{:.2f}', 'ffβ': '{:.2f}', 'Fβ': '{:.2f}', 'Cb': '{:.2f}'
+                    }, na_rep=''), use_container_width=True, hide_index=True)
             
     elif page == '📊 周节详细报表':
         st.markdown("## Gear Spacing Report - 周节详细报表")
