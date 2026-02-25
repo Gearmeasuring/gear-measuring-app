@@ -215,8 +215,8 @@ def login_user(username: str, password: str) -> tuple:
         "last_login": user["last_login"]
     }
 
-    # 保存会话到文件（用于持久化登录）
-    save_session(username, user_data)
+    # 注意：不再保存全局会话文件，每个浏览器会话独立
+    # 这修复了多用户同时访问时看到其他用户登录状态的问题
 
     return True, "登录成功", user_data
 
@@ -349,7 +349,7 @@ def clear_session():
 
 
 def init_session_state():
-    """初始化 session state，并尝试恢复持久化会话"""
+    """初始化 session state"""
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
     if "user" not in st.session_state:
@@ -358,23 +358,10 @@ def init_session_state():
         st.session_state.show_register = False
     if "show_admin" not in st.session_state:
         st.session_state.show_admin = False
-
-    # 尝试从文件恢复会话
-    if not st.session_state.authenticated:
-        session = load_session()
-        if session:
-            username = session.get("username")
-            user_data = session.get("user_data")
-
-            # 验证用户是否仍然存在且有效
-            users = load_users()
-            if username in users and users[username].get("is_active", True):
-                st.session_state.authenticated = True
-                st.session_state.user = user_data
-                # 更新最后登录时间
-                users[username]["last_login"] = datetime.now().isoformat()
-                save_users(users)
-                log_access(username, "自动登录", "从持久化会话恢复")
+    
+    # 注意：移除了全局会话文件恢复功能
+    # 每个浏览器会话现在独立，不会共享登录状态
+    # 这修复了多用户同时访问时看到其他用户登录状态的问题
 
 
 def login_page():
@@ -591,8 +578,7 @@ def logout():
     user = get_current_user()
     if user:
         log_access(user["username"], "登出", "用户退出登录")
-    # 清除持久化会话
-    clear_session()
+    # 只清除当前会话状态，不清除全局会话文件
     st.session_state.authenticated = False
     st.session_state.user = None
     st.rerun()
