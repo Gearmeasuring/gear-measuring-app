@@ -1069,8 +1069,8 @@ if uploaded_file is not None:
             if side in helix_data:
                 measured_teeth.update(helix_data[side].keys())
         
-        # 按顺序排列有测量数据的齿
-        measured_teeth_list = sorted(list(measured_teeth))
+        # 按顺序排列有测量数据的齿（使用数字排序）
+        measured_teeth_list = sorted(list(measured_teeth), key=tooth_sort_key)
         
         if not measured_teeth_list:
             st.warning("未找到测量数据")
