@@ -2025,28 +2025,25 @@ if uploaded_file is not None:
         else:
             st.info("未找到齿向三截面数据")
         
-        # 显示详细曲线图
+        # 显示详细曲线图 - 按类型分组：左齿形、右齿形、左齿向、右齿向
         st.markdown("#### 详细曲线图")
         
-        for section in tooth_sections:
-            st.markdown(f"**齿号 {section}**")
-            
-            cols = st.columns(2)
-            
-            # 左齿面齿形
-            with cols[0]:
+        # ===== 左齿面齿形 (Left Profile) =====
+        st.markdown("**Left Profile 左齿面齿形**")
+        cols = st.columns(3)
+        for i, section in enumerate(tooth_sections):
+            with cols[i]:
                 if 'left' in profile_data and section in profile_data['left']:
                     tooth_profiles = profile_data['left'][section]
                     if tooth_profiles:
                         best_z = list(tooth_profiles.keys())[len(tooth_profiles)//2]
                         values = np.array(tooth_profiles[best_z])
                         
-                        fig, ax = plt.subplots(figsize=(4, 5))
+                        fig, ax = plt.subplots(figsize=(3.5, 5))
                         y_positions = np.linspace(da, de, len(values))
                         ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=1.0)
                         ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
                         
-                        # 标记点
                         n = len(values)
                         meas_length = de - da
                         idx_eval_start = int((d1 - da) / meas_length * (n - 1))
@@ -2059,24 +2056,27 @@ if uploaded_file is not None:
                         
                         ax.set_ylim(da - 1, de + 1)
                         ax.set_yticks([da, d1, d2, de])
-                        ax.set_yticklabels([f'{da:.1f}', f'{d1:.1f}', f'{d2:.1f}', f'{de:.1f}'], fontsize=9)
+                        ax.set_yticklabels([f'{da:.1f}', f'{d1:.1f}', f'{d2:.1f}', f'{de:.1f}'], fontsize=8)
                         ax.set_xlim(0.3, 1.7)
                         ax.set_xticks([0.5, 1.0, 1.5])
-                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=9)
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=8)
                         ax.grid(True, linestyle=':', linewidth=0.5, color='gray')
-                        ax.set_xlabel(f'{section} Left Profile', fontsize=10, fontweight='bold')
+                        ax.set_xlabel(f'{section}', fontsize=10, fontweight='bold')
                         plt.tight_layout()
                         st.pyplot(fig)
-            
-            # 右齿面齿形
-            with cols[1]:
+        
+        # ===== 右齿面齿形 (Right Profile) =====
+        st.markdown("**Right Profile 右齿面齿形**")
+        cols = st.columns(3)
+        for i, section in enumerate(tooth_sections):
+            with cols[i]:
                 if 'right' in profile_data and section in profile_data['right']:
                     tooth_profiles = profile_data['right'][section]
                     if tooth_profiles:
                         best_z = list(tooth_profiles.keys())[len(tooth_profiles)//2]
                         values = np.array(tooth_profiles[best_z])
                         
-                        fig, ax = plt.subplots(figsize=(4, 5))
+                        fig, ax = plt.subplots(figsize=(3.5, 5))
                         y_positions = np.linspace(da, de, len(values))
                         ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=1.0)
                         ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
@@ -2093,26 +2093,27 @@ if uploaded_file is not None:
                         
                         ax.set_ylim(da - 1, de + 1)
                         ax.set_yticks([da, d1, d2, de])
-                        ax.set_yticklabels([f'{da:.1f}', f'{d1:.1f}', f'{d2:.1f}', f'{de:.1f}'], fontsize=9)
+                        ax.set_yticklabels([f'{da:.1f}', f'{d1:.1f}', f'{d2:.1f}', f'{de:.1f}'], fontsize=8)
                         ax.set_xlim(0.3, 1.7)
                         ax.set_xticks([0.5, 1.0, 1.5])
-                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=9)
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=8)
                         ax.grid(True, linestyle=':', linewidth=0.5, color='gray')
-                        ax.set_xlabel(f'{section} Right Profile', fontsize=10, fontweight='bold')
+                        ax.set_xlabel(f'{section}', fontsize=10, fontweight='bold')
                         plt.tight_layout()
                         st.pyplot(fig)
-            
-            # 齿向曲线
-            cols2 = st.columns(2)
-            
-            with cols2[0]:
+        
+        # ===== 左齿面齿向 (Left Helix) =====
+        st.markdown("**Left Helix 左齿面齿向**")
+        cols = st.columns(3)
+        for i, section in enumerate(tooth_sections):
+            with cols[i]:
                 if 'left' in helix_data and section in helix_data['left']:
                     tooth_helix = helix_data['left'][section]
                     if tooth_helix:
                         best_d = list(tooth_helix.keys())[len(tooth_helix)//2]
                         values = np.array(tooth_helix[best_d])
                         
-                        fig, ax = plt.subplots(figsize=(4, 5))
+                        fig, ax = plt.subplots(figsize=(3.5, 5))
                         y_positions = np.linspace(ba, be, len(values))
                         ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=1.0)
                         ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
@@ -2129,23 +2130,27 @@ if uploaded_file is not None:
                         
                         ax.set_ylim(ba - 1, be + 1)
                         ax.set_yticks([ba, b1, b2, be])
-                        ax.set_yticklabels([f'{ba:.1f}', f'{b1:.1f}', f'{b2:.1f}', f'{be:.1f}'], fontsize=9)
+                        ax.set_yticklabels([f'{ba:.1f}', f'{b1:.1f}', f'{b2:.1f}', f'{be:.1f}'], fontsize=8)
                         ax.set_xlim(0.3, 1.7)
                         ax.set_xticks([0.5, 1.0, 1.5])
-                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=9)
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=8)
                         ax.grid(True, linestyle=':', linewidth=0.5, color='gray')
-                        ax.set_xlabel(f'{section} Left Helix', fontsize=10, fontweight='bold')
+                        ax.set_xlabel(f'{section}', fontsize=10, fontweight='bold')
                         plt.tight_layout()
                         st.pyplot(fig)
-            
-            with cols2[1]:
+        
+        # ===== 右齿面齿向 (Right Helix) =====
+        st.markdown("**Right Helix 右齿面齿向**")
+        cols = st.columns(3)
+        for i, section in enumerate(tooth_sections):
+            with cols[i]:
                 if 'right' in helix_data and section in helix_data['right']:
                     tooth_helix = helix_data['right'][section]
                     if tooth_helix:
                         best_d = list(tooth_helix.keys())[len(tooth_helix)//2]
                         values = np.array(tooth_helix[best_d])
                         
-                        fig, ax = plt.subplots(figsize=(4, 5))
+                        fig, ax = plt.subplots(figsize=(3.5, 5))
                         y_positions = np.linspace(ba, be, len(values))
                         ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=1.0)
                         ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
@@ -2162,16 +2167,14 @@ if uploaded_file is not None:
                         
                         ax.set_ylim(ba - 1, be + 1)
                         ax.set_yticks([ba, b1, b2, be])
-                        ax.set_yticklabels([f'{ba:.1f}', f'{b1:.1f}', f'{b2:.1f}', f'{be:.1f}'], fontsize=9)
+                        ax.set_yticklabels([f'{ba:.1f}', f'{b1:.1f}', f'{b2:.1f}', f'{be:.1f}'], fontsize=8)
                         ax.set_xlim(0.3, 1.7)
                         ax.set_xticks([0.5, 1.0, 1.5])
-                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=9)
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=8)
                         ax.grid(True, linestyle=':', linewidth=0.5, color='gray')
-                        ax.set_xlabel(f'{section} Right Helix', fontsize=10, fontweight='bold')
+                        ax.set_xlabel(f'{section}', fontsize=10, fontweight='bold')
                         plt.tight_layout()
                         st.pyplot(fig)
-            
-            st.markdown("---")
     
     # 清理临时文件
     if os.path.exists(temp_path):
