@@ -1909,80 +1909,118 @@ if uploaded_file is not None:
         # 获取三截面数据（齿号1的a, b, c三个截面）
         tooth_sections = ['1a', '1b', '1c']
         
-        # 显示齿形数据
+        # 显示齿形数据 - 按齿号分组，每个齿号显示左右齿面
         st.markdown("#### Profile 齿形偏差")
         
         profile_sections_data = []
         for section in tooth_sections:
-            # 尝试获取左齿面和右齿面的数据
-            for side in ['left', 'right']:
-                side_name = 'Left' if side == 'left' else 'Right'
-                if side in profile_data and section in profile_data[side]:
-                    tooth_data = profile_data[side][section]
-                    # 获取中间截面的数据
-                    if tooth_data:
-                        z_positions = list(tooth_data.keys())
-                        if z_positions:
-                            mid_z = z_positions[len(z_positions) // 2]
-                            values = np.array(tooth_data[mid_z])
-                            
-                            # 计算偏差
-                            F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
-                            if F_a is not None:
-                                profile_sections_data.append({
-                                    'Tooth': section,
-                                    'Side': side_name,
-                                    'fHα': fH_a,
-                                    'ffα': ff_a,
-                                    'Fα': F_a,
-                                    'Ca': Ca
-                                })
+            row_data = {'Tooth': section}
+            has_data = False
+            
+            # 左齿面
+            if 'left' in profile_data and section in profile_data['left']:
+                tooth_data = profile_data['left'][section]
+                if tooth_data:
+                    z_positions = list(tooth_data.keys())
+                    if z_positions:
+                        mid_z = z_positions[len(z_positions) // 2]
+                        values = np.array(tooth_data[mid_z])
+                        F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
+                        if F_a is not None:
+                            row_data['fHα_L'] = fH_a
+                            row_data['ffα_L'] = ff_a
+                            row_data['Fα_L'] = F_a
+                            row_data['Ca_L'] = Ca
+                            has_data = True
+            
+            # 右齿面
+            if 'right' in profile_data and section in profile_data['right']:
+                tooth_data = profile_data['right'][section]
+                if tooth_data:
+                    z_positions = list(tooth_data.keys())
+                    if z_positions:
+                        mid_z = z_positions[len(z_positions) // 2]
+                        values = np.array(tooth_data[mid_z])
+                        F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
+                        if F_a is not None:
+                            row_data['fHα_R'] = fH_a
+                            row_data['ffα_R'] = ff_a
+                            row_data['Fα_R'] = F_a
+                            row_data['Ca_R'] = Ca
+                            has_data = True
+            
+            if has_data:
+                profile_sections_data.append(row_data)
         
         if profile_sections_data:
             df_profile = pd.DataFrame(profile_sections_data)
+            # 定义列顺序
+            columns = ['Tooth', 'fHα_L', 'ffα_L', 'Fα_L', 'Ca_L', 'fHα_R', 'ffα_R', 'Fα_R', 'Ca_R']
+            # 只保留存在的列
+            available_columns = [col for col in columns if col in df_profile.columns]
+            df_profile = df_profile[available_columns]
+            
             st.dataframe(df_profile.style.format({
-                'fHα': '{:.2f}',
-                'ffα': '{:.2f}',
-                'Fα': '{:.2f}',
-                'Ca': '{:.2f}'
+                'fHα_L': '{:.2f}', 'ffα_L': '{:.2f}', 'Fα_L': '{:.2f}', 'Ca_L': '{:.2f}',
+                'fHα_R': '{:.2f}', 'ffα_R': '{:.2f}', 'Fα_R': '{:.2f}', 'Ca_R': '{:.2f}'
             }), use_container_width=True, hide_index=True)
         else:
             st.info("未找到齿形三截面数据")
         
-        # 显示齿向数据
+        # 显示齿向数据 - 按齿号分组，每个齿号显示左右齿面
         st.markdown("#### Helix 齿向偏差")
         
         helix_sections_data = []
         for section in tooth_sections:
-            for side in ['left', 'right']:
-                side_name = 'Left' if side == 'left' else 'Right'
-                if side in helix_data and section in helix_data[side]:
-                    tooth_data = helix_data[side][section]
-                    if tooth_data:
-                        d_positions = list(tooth_data.keys())
-                        if d_positions:
-                            mid_d = d_positions[len(d_positions) // 2]
-                            values = np.array(tooth_data[mid_d])
-                            
-                            # 计算偏差
-                            F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
-                            if F_b is not None:
-                                helix_sections_data.append({
-                                    'Tooth': section,
-                                    'Side': side_name,
-                                    'fHβ': fH_b,
-                                    'ffβ': ff_b,
-                                    'Fβ': F_b,
-                                    'Cb': Cb
-                                })
+            row_data = {'Tooth': section}
+            has_data = False
+            
+            # 左齿面
+            if 'left' in helix_data and section in helix_data['left']:
+                tooth_data = helix_data['left'][section]
+                if tooth_data:
+                    d_positions = list(tooth_data.keys())
+                    if d_positions:
+                        mid_d = d_positions[len(d_positions) // 2]
+                        values = np.array(tooth_data[mid_d])
+                        F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
+                        if F_b is not None:
+                            row_data['fHβ_L'] = fH_b
+                            row_data['ffβ_L'] = ff_b
+                            row_data['Fβ_L'] = F_b
+                            row_data['Cb_L'] = Cb
+                            has_data = True
+            
+            # 右齿面
+            if 'right' in helix_data and section in helix_data['right']:
+                tooth_data = helix_data['right'][section]
+                if tooth_data:
+                    d_positions = list(tooth_data.keys())
+                    if d_positions:
+                        mid_d = d_positions[len(d_positions) // 2]
+                        values = np.array(tooth_data[mid_d])
+                        F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
+                        if F_b is not None:
+                            row_data['fHβ_R'] = fH_b
+                            row_data['ffβ_R'] = ff_b
+                            row_data['Fβ_R'] = F_b
+                            row_data['Cb_R'] = Cb
+                            has_data = True
+            
+            if has_data:
+                helix_sections_data.append(row_data)
         
         if helix_sections_data:
             df_helix = pd.DataFrame(helix_sections_data)
+            # 定义列顺序
+            columns = ['Tooth', 'fHβ_L', 'ffβ_L', 'Fβ_L', 'Cb_L', 'fHβ_R', 'ffβ_R', 'Fβ_R', 'Cb_R']
+            # 只保留存在的列
+            available_columns = [col for col in columns if col in df_helix.columns]
+            df_helix = df_helix[available_columns]
+            
             st.dataframe(df_helix.style.format({
-                'fHβ': '{:.2f}',
-                'ffβ': '{:.2f}',
-                'Fβ': '{:.2f}',
-                'Cb': '{:.2f}'
+                'fHβ_L': '{:.2f}', 'ffβ_L': '{:.2f}', 'Fβ_L': '{:.2f}', 'Cb_L': '{:.2f}',
+                'fHβ_R': '{:.2f}', 'ffβ_R': '{:.2f}', 'Fβ_R': '{:.2f}', 'Cb_R': '{:.2f}'
             }), use_container_width=True, hide_index=True)
         else:
             st.info("未找到齿向三截面数据")
