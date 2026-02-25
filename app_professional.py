@@ -251,7 +251,7 @@ if uploaded_file is not None:
             st.table(header_data2)
         
         st.markdown("---")
-        st.markdown("### Gear Profile/Lead Charts")
+        st.markdown("### Analysis of Deviations")
         
         profile_data = analyzer.reader.profile_data
         helix_data = analyzer.reader.helix_data
@@ -265,7 +265,7 @@ if uploaded_file is not None:
         face_width = abs(b2 - b1) if b1 is not None and b2 is not None else 78
         profile_length = abs(d2 - d1) if d1 is not None and d2 is not None else 8
         
-        # 获取测量的齿号
+        # 获取所有测量的齿号
         measured_teeth_profile = set()
         measured_teeth_helix = set()
         for side in ['left', 'right']:
@@ -274,141 +274,320 @@ if uploaded_file is not None:
             if side in helix_data:
                 measured_teeth_helix.update(helix_data[side].keys())
         
-        # 选择要显示的齿（最多6个，类似PDF）
-        display_teeth = sorted(list(measured_teeth_profile))[:6]
-        if not display_teeth and gear_params:
-            display_teeth = list(range(1, min(7, gear_params.teeth_count + 1)))
+        # 获取所有测量齿号并排序
+        all_measured_teeth = sorted(list(measured_teeth_profile.union(measured_teeth_helix)))
         
-        # 左齿形图表
-        st.markdown("#### Left Flank - Profile")
-        if display_teeth:
-            cols = st.columns(min(6, len(display_teeth)))
-            for i, tooth_id in enumerate(display_teeth[:len(cols)]):
-                with cols[i]:
-                    if tooth_id in profile_data.get('left', {}):
+        # 辅助函数：计算偏差参数
+        def calc_profile_deviations(values, x_positions):
+            """计算齿形偏差参数"""
+            if len(values) < 10:
+                return None
+            
+            n = len(values)
+            # 评价范围（10% 到 90%）
+            idx_start = int(n * 0.1)
+            idx_end = int(n * 0.9)
+            eval_values = values[idx_start:idx_end+1]
+            eval_x = x_positions[idx_start:idx_end+1]
+            
+            if len(eval_values) < 2:
+                return None
+            
+            # 拟合直线（最小二乘法）
+            x = np.arange(len(eval_values))
+            slope, intercept = np.polyfit(x, eval_values, 1)
+            trend = slope * x + intercept
+            
+            # fHαm - 齿形倾斜偏差（总趋势）
+            fHa = (trend[-1] - trend[0])
+            
+            # ffα - 齿形形状偏差（去除趋势后的峰谷差）
+            residual = eval_values - trend
+            ff_a = np.max(residual) - np.min(residual)
+            
+            # fα - 齿形总偏差
+            f_a = np.max(eval_values) - np.min(eval_values)
+            
+            # Ca - 鼓形量（简化计算）
+            mid_idx = len(eval_values) // 2
+            Ca = (eval_values[0] + eval_values[-1]) / 2 - eval_values[mid_idx]
+            
+            return {
+                'fHαm': fHa,
+                'ffα': ff_a,
+                'fα': f_a,
+                'Ca': Ca
+            }
+        
+        def calc_helix_deviations(values, x_positions):
+            """计算齿向偏差参数"""
+            if len(values) < 10:
+                return None
+            
+            n = len(values)
+            idx_start = int(n * 0.1)
+            idx_end = int(n * 0.9)
+            eval_values = values[idx_start:idx_end+1]
+            eval_x = x_positions[idx_start:idx_end+1]
+            
+            if len(eval_values) < 2:
+                return None
+            
+            x = np.arange(len(eval_values))
+            slope, intercept = np.polyfit(x, eval_values, 1)
+            trend = slope * x + intercept
+            
+            # fHβm - 齿向倾斜偏差
+            fHb = (trend[-1] - trend[0])
+            
+            # ffβ - 齿向形状偏差
+            residual = eval_values - trend
+            ff_b = np.max(residual) - np.min(residual)
+            
+            # fβ - 齿向总偏差
+            f_b = np.max(eval_values) - np.min(eval_values)
+            
+            # Cb - 鼓形量
+            mid_idx = len(eval_values) // 2
+            Cb = (eval_values[0] + eval_values[-1]) / 2 - eval_values[mid_idx]
+            
+            return {
+                'fHβm': fHb,
+                'ffβ': ff_b,
+                'fβ': f_b,
+                'Cb': Cb
+            }
+        
+        # ========== Profile 齿形分析 ==========
+        st.markdown("#### Profile")
+        
+        # 获取所有有齿形数据的齿
+        profile_teeth_left = sorted(list(profile_data.get('left', {}).keys()))
+        profile_teeth_right = sorted(list(profile_data.get('right', {}).keys()))
+        all_profile_teeth = sorted(list(set(profile_teeth_left + profile_teeth_right)))
+        
+        if all_profile_teeth:
+            # 左齿面曲线图
+            if profile_teeth_left:
+                st.markdown("**Left Flank**")
+                cols = st.columns(min(8, len(profile_teeth_left)))
+                left_profile_results = []
+                
+                for i, tooth_id in enumerate(profile_teeth_left[:len(cols)]):
+                    with cols[i]:
                         tooth_profiles = profile_data['left'][tooth_id]
                         helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
                         best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
                         values = tooth_profiles[best_z]
                         
-                        fig, ax = plt.subplots(figsize=(2.5, 5))
+                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
                         x_positions = np.linspace(0, profile_length, len(values))
                         
-                        # PDF样式：黑色曲线，带网格
-                        ax.plot(values, x_positions, 'k-', linewidth=0.8)
+                        # 绘制曲线
+                        ax.plot(values, x_positions, 'r-', linewidth=0.6)
                         
-                        # 添加评价范围标记线
-                        n_points = len(values)
-                        idx_start = int(n_points * 0.1)
-                        idx_end = int(n_points * 0.9)
-                        ax.axhline(y=x_positions[idx_start], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
-                        ax.axhline(y=x_positions[idx_end], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
+                        # 拟合线
+                        n = len(values)
+                        idx_start = int(n * 0.1)
+                        idx_end = int(n * 0.9)
+                        eval_values = values[idx_start:idx_end+1]
+                        if len(eval_values) > 1:
+                            x_fit = np.arange(len(eval_values))
+                            slope, intercept = np.polyfit(x_fit, eval_values, 1)
+                            trend = slope * x_fit + intercept
+                            eval_x = x_positions[idx_start:idx_end+1]
+                            ax.plot(trend, eval_x, 'k--', linewidth=0.5)
                         
-                        # 网格样式
-                        ax.grid(True, linestyle='-', alpha=0.5, color='gray', linewidth=0.3)
-                        ax.set_xlabel('μm', fontsize=6)
-                        ax.set_ylabel('mm', fontsize=6)
-                        ax.set_title(f'Tooth {tooth_id}', fontsize=8, fontweight='bold')
-                        ax.tick_params(axis='both', which='major', labelsize=5)
+                        ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
+                        ax.set_xticks([])
+                        ax.set_yticks([])
+                        ax.set_frame_on(False)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
-        
-        # 右齿形图表
-        st.markdown("#### Right Flank - Profile")
-        if display_teeth:
-            cols = st.columns(min(6, len(display_teeth)))
-            for i, tooth_id in enumerate(display_teeth[:len(cols)]):
-                with cols[i]:
-                    if tooth_id in profile_data.get('right', {}):
+                        
+                        # 计算偏差
+                        devs = calc_profile_deviations(values, x_positions)
+                        if devs:
+                            left_profile_results.append({
+                                'Tooth': tooth_id,
+                                **devs
+                            })
+                
+                # 左齿面偏差表格
+                if left_profile_results:
+                    df_left = pd.DataFrame(left_profile_results)
+                    # 添加平均值行
+                    mean_row = {'Tooth': 'Mean'}
+                    for col in ['fHαm', 'ffα', 'fα', 'Ca']:
+                        mean_row[col] = df_left[col].mean()
+                    df_left = pd.concat([df_left, pd.DataFrame([mean_row])], ignore_index=True)
+                    st.table(df_left.style.format({col: '{:.1f}' for col in ['fHαm', 'ffα', 'fα', 'Ca']}))
+            
+            # 右齿面曲线图
+            if profile_teeth_right:
+                st.markdown("**Right Flank**")
+                cols = st.columns(min(8, len(profile_teeth_right)))
+                right_profile_results = []
+                
+                for i, tooth_id in enumerate(profile_teeth_right[:len(cols)]):
+                    with cols[i]:
                         tooth_profiles = profile_data['right'][tooth_id]
                         helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
                         best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
                         values = tooth_profiles[best_z]
                         
-                        fig, ax = plt.subplots(figsize=(2.5, 5))
+                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
                         x_positions = np.linspace(0, profile_length, len(values))
                         
-                        ax.plot(values, x_positions, 'k-', linewidth=0.8)
+                        ax.plot(values, x_positions, 'r-', linewidth=0.6)
                         
-                        n_points = len(values)
-                        idx_start = int(n_points * 0.1)
-                        idx_end = int(n_points * 0.9)
-                        ax.axhline(y=x_positions[idx_start], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
-                        ax.axhline(y=x_positions[idx_end], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
+                        n = len(values)
+                        idx_start = int(n * 0.1)
+                        idx_end = int(n * 0.9)
+                        eval_values = values[idx_start:idx_end+1]
+                        if len(eval_values) > 1:
+                            x_fit = np.arange(len(eval_values))
+                            slope, intercept = np.polyfit(x_fit, eval_values, 1)
+                            trend = slope * x_fit + intercept
+                            eval_x = x_positions[idx_start:idx_end+1]
+                            ax.plot(trend, eval_x, 'k--', linewidth=0.5)
                         
-                        ax.grid(True, linestyle='-', alpha=0.5, color='gray', linewidth=0.3)
-                        ax.set_xlabel('μm', fontsize=6)
-                        ax.set_ylabel('mm', fontsize=6)
-                        ax.set_title(f'Tooth {tooth_id}', fontsize=8, fontweight='bold')
-                        ax.tick_params(axis='both', which='major', labelsize=5)
+                        ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
+                        ax.set_xticks([])
+                        ax.set_yticks([])
+                        ax.set_frame_on(False)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
+                        
+                        devs = calc_profile_deviations(values, x_positions)
+                        if devs:
+                            right_profile_results.append({
+                                'Tooth': tooth_id,
+                                **devs
+                            })
+                
+                if right_profile_results:
+                    df_right = pd.DataFrame(right_profile_results)
+                    mean_row = {'Tooth': 'Mean'}
+                    for col in ['fHαm', 'ffα', 'fα', 'Ca']:
+                        mean_row[col] = df_right[col].mean()
+                    df_right = pd.concat([df_right, pd.DataFrame([mean_row])], ignore_index=True)
+                    st.table(df_right.style.format({col: '{:.1f}' for col in ['fHαm', 'ffα', 'fα', 'Ca']}))
         
-        # 左齿向图表
-        st.markdown("#### Left Flank - Lead")
-        if display_teeth:
-            cols = st.columns(min(6, len(display_teeth)))
-            for i, tooth_id in enumerate(display_teeth[:len(cols)]):
-                with cols[i]:
-                    if tooth_id in helix_data.get('left', {}):
+        # ========== Helix 齿向分析 ==========
+        st.markdown("#### Helix")
+        
+        # 获取所有有齿向数据的齿
+        helix_teeth_left = sorted(list(helix_data.get('left', {}).keys()))
+        helix_teeth_right = sorted(list(helix_data.get('right', {}).keys()))
+        all_helix_teeth = sorted(list(set(helix_teeth_left + helix_teeth_right)))
+        
+        if all_helix_teeth:
+            # 左齿面曲线图
+            if helix_teeth_left:
+                st.markdown("**Left Flank**")
+                cols = st.columns(min(8, len(helix_teeth_left)))
+                left_helix_results = []
+                
+                for i, tooth_id in enumerate(helix_teeth_left[:len(cols)]):
+                    with cols[i]:
                         tooth_helix = helix_data['left'][tooth_id]
                         profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
                         best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
                         values = tooth_helix[best_d]
                         
-                        fig, ax = plt.subplots(figsize=(2.5, 5))
+                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
                         x_positions = np.linspace(0, face_width, len(values))
                         
-                        ax.plot(values, x_positions, 'k-', linewidth=0.8)
+                        ax.plot(values, x_positions, 'r-', linewidth=0.6)
                         
-                        n_points = len(values)
-                        idx_start = int(n_points * 0.1)
-                        idx_end = int(n_points * 0.9)
-                        ax.axhline(y=x_positions[idx_start], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
-                        ax.axhline(y=x_positions[idx_end], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
+                        n = len(values)
+                        idx_start = int(n * 0.1)
+                        idx_end = int(n * 0.9)
+                        eval_values = values[idx_start:idx_end+1]
+                        if len(eval_values) > 1:
+                            x_fit = np.arange(len(eval_values))
+                            slope, intercept = np.polyfit(x_fit, eval_values, 1)
+                            trend = slope * x_fit + intercept
+                            eval_x = x_positions[idx_start:idx_end+1]
+                            ax.plot(trend, eval_x, 'k--', linewidth=0.5)
                         
-                        ax.grid(True, linestyle='-', alpha=0.5, color='gray', linewidth=0.3)
-                        ax.set_xlabel('μm', fontsize=6)
-                        ax.set_ylabel('mm', fontsize=6)
-                        ax.set_title(f'Tooth {tooth_id}', fontsize=8, fontweight='bold')
-                        ax.tick_params(axis='both', which='major', labelsize=5)
+                        ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
+                        ax.set_xticks([])
+                        ax.set_yticks([])
+                        ax.set_frame_on(False)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
-        
-        # 右齿向图表
-        st.markdown("#### Right Flank - Lead")
-        if display_teeth:
-            cols = st.columns(min(6, len(display_teeth)))
-            for i, tooth_id in enumerate(display_teeth[:len(cols)]):
-                with cols[i]:
-                    if tooth_id in helix_data.get('right', {}):
+                        
+                        devs = calc_helix_deviations(values, x_positions)
+                        if devs:
+                            left_helix_results.append({
+                                'Tooth': tooth_id,
+                                **devs
+                            })
+                
+                if left_helix_results:
+                    df_left_h = pd.DataFrame(left_helix_results)
+                    mean_row = {'Tooth': 'Mean'}
+                    for col in ['fHβm', 'ffβ', 'fβ', 'Cb']:
+                        mean_row[col] = df_left_h[col].mean()
+                    df_left_h = pd.concat([df_left_h, pd.DataFrame([mean_row])], ignore_index=True)
+                    st.table(df_left_h.style.format({col: '{:.1f}' for col in ['fHβm', 'ffβ', 'fβ', 'Cb']}))
+            
+            # 右齿面曲线图
+            if helix_teeth_right:
+                st.markdown("**Right Flank**")
+                cols = st.columns(min(8, len(helix_teeth_right)))
+                right_helix_results = []
+                
+                for i, tooth_id in enumerate(helix_teeth_right[:len(cols)]):
+                    with cols[i]:
                         tooth_helix = helix_data['right'][tooth_id]
                         profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
                         best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
                         values = tooth_helix[best_d]
                         
-                        fig, ax = plt.subplots(figsize=(2.5, 5))
+                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
                         x_positions = np.linspace(0, face_width, len(values))
                         
-                        ax.plot(values, x_positions, 'k-', linewidth=0.8)
+                        ax.plot(values, x_positions, 'r-', linewidth=0.6)
                         
-                        n_points = len(values)
-                        idx_start = int(n_points * 0.1)
-                        idx_end = int(n_points * 0.9)
-                        ax.axhline(y=x_positions[idx_start], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
-                        ax.axhline(y=x_positions[idx_end], color='green', linestyle='--', linewidth=0.5, alpha=0.7)
+                        n = len(values)
+                        idx_start = int(n * 0.1)
+                        idx_end = int(n * 0.9)
+                        eval_values = values[idx_start:idx_end+1]
+                        if len(eval_values) > 1:
+                            x_fit = np.arange(len(eval_values))
+                            slope, intercept = np.polyfit(x_fit, eval_values, 1)
+                            trend = slope * x_fit + intercept
+                            eval_x = x_positions[idx_start:idx_end+1]
+                            ax.plot(trend, eval_x, 'k--', linewidth=0.5)
                         
-                        ax.grid(True, linestyle='-', alpha=0.5, color='gray', linewidth=0.3)
-                        ax.set_xlabel('μm', fontsize=6)
-                        ax.set_ylabel('mm', fontsize=6)
-                        ax.set_title(f'Tooth {tooth_id}', fontsize=8, fontweight='bold')
-                        ax.tick_params(axis='both', which='major', labelsize=5)
+                        ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
+                        ax.set_xticks([])
+                        ax.set_yticks([])
+                        ax.set_frame_on(False)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
+                        
+                        devs = calc_helix_deviations(values, x_positions)
+                        if devs:
+                            right_helix_results.append({
+                                'Tooth': tooth_id,
+                                **devs
+                            })
+                
+                if right_helix_results:
+                    df_right_h = pd.DataFrame(right_helix_results)
+                    mean_row = {'Tooth': 'Mean'}
+                    for col in ['fHβm', 'ffβ', 'fβ', 'Cb']:
+                        mean_row[col] = df_right_h[col].mean()
+                    df_right_h = pd.concat([df_right_h, pd.DataFrame([mean_row])], ignore_index=True)
+                    st.table(df_right_h.style.format({col: '{:.1f}' for col in ['fHβm', 'ffβ', 'fβ', 'Cb']}))
             
     elif page == '📊 周节详细报表':
         st.markdown("## Gear Spacing Report - 周节详细报表")
