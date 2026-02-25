@@ -1064,7 +1064,7 @@ if uploaded_file is not None:
                 ax.grid(True, linestyle=':', alpha=0.5)
                 ax.set_xlim(0, len(teeth_left)+1)
                 st.pyplot(fig)
-                        plt.close(fig)
+                plt.close(fig)
 
             with col2:
                 # Fp曲线图
