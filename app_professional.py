@@ -1909,13 +1909,14 @@ if uploaded_file is not None:
         # 获取三截面数据（齿号1的a, b, c三个截面）
         tooth_sections = ['1a', '1b', '1c']
         
-        # 显示齿形数据 - 按齿号分组，每个齿号显示左右齿面
-        st.markdown("#### Profile 齿形偏差")
-        
+        # 先收集所有数据（用于后面的表格显示）
         profile_sections_data = []
+        helix_sections_data = []
+        
         for section in tooth_sections:
-            row_data = {'Tooth': section}
-            has_data = False
+            # 齿形数据
+            row_data_profile = {'Tooth': section}
+            has_profile_data = False
             
             # 左齿面
             if 'left' in profile_data and section in profile_data['left']:
@@ -1927,11 +1928,11 @@ if uploaded_file is not None:
                         values = np.array(tooth_data[mid_z])
                         F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
                         if F_a is not None:
-                            row_data['fHα_L'] = fH_a
-                            row_data['ffα_L'] = ff_a
-                            row_data['Fα_L'] = F_a
-                            row_data['Ca_L'] = Ca
-                            has_data = True
+                            row_data_profile['fHα_L'] = fH_a
+                            row_data_profile['ffα_L'] = ff_a
+                            row_data_profile['Fα_L'] = F_a
+                            row_data_profile['Ca_L'] = Ca
+                            has_profile_data = True
             
             # 右齿面
             if 'right' in profile_data and section in profile_data['right']:
@@ -1943,37 +1944,18 @@ if uploaded_file is not None:
                         values = np.array(tooth_data[mid_z])
                         F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
                         if F_a is not None:
-                            row_data['fHα_R'] = fH_a
-                            row_data['ffα_R'] = ff_a
-                            row_data['Fα_R'] = F_a
-                            row_data['Ca_R'] = Ca
-                            has_data = True
+                            row_data_profile['fHα_R'] = fH_a
+                            row_data_profile['ffα_R'] = ff_a
+                            row_data_profile['Fα_R'] = F_a
+                            row_data_profile['Ca_R'] = Ca
+                            has_profile_data = True
             
-            if has_data:
-                profile_sections_data.append(row_data)
-        
-        if profile_sections_data:
-            df_profile = pd.DataFrame(profile_sections_data)
-            # 定义列顺序
-            columns = ['Tooth', 'fHα_L', 'ffα_L', 'Fα_L', 'Ca_L', 'fHα_R', 'ffα_R', 'Fα_R', 'Ca_R']
-            # 只保留存在的列
-            available_columns = [col for col in columns if col in df_profile.columns]
-            df_profile = df_profile[available_columns]
+            if has_profile_data:
+                profile_sections_data.append(row_data_profile)
             
-            st.dataframe(df_profile.style.format({
-                'fHα_L': '{:.2f}', 'ffα_L': '{:.2f}', 'Fα_L': '{:.2f}', 'Ca_L': '{:.2f}',
-                'fHα_R': '{:.2f}', 'ffα_R': '{:.2f}', 'Fα_R': '{:.2f}', 'Ca_R': '{:.2f}'
-            }), use_container_width=True, hide_index=True)
-        else:
-            st.info("未找到齿形三截面数据")
-        
-        # 显示齿向数据 - 按齿号分组，每个齿号显示左右齿面
-        st.markdown("#### Helix 齿向偏差")
-        
-        helix_sections_data = []
-        for section in tooth_sections:
-            row_data = {'Tooth': section}
-            has_data = False
+            # 齿向数据
+            row_data_helix = {'Tooth': section}
+            has_helix_data = False
             
             # 左齿面
             if 'left' in helix_data and section in helix_data['left']:
@@ -1985,11 +1967,11 @@ if uploaded_file is not None:
                         values = np.array(tooth_data[mid_d])
                         F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
                         if F_b is not None:
-                            row_data['fHβ_L'] = fH_b
-                            row_data['ffβ_L'] = ff_b
-                            row_data['Fβ_L'] = F_b
-                            row_data['Cb_L'] = Cb
-                            has_data = True
+                            row_data_helix['fHβ_L'] = fH_b
+                            row_data_helix['ffβ_L'] = ff_b
+                            row_data_helix['Fβ_L'] = F_b
+                            row_data_helix['Cb_L'] = Cb
+                            has_helix_data = True
             
             # 右齿面
             if 'right' in helix_data and section in helix_data['right']:
@@ -2001,29 +1983,14 @@ if uploaded_file is not None:
                         values = np.array(tooth_data[mid_d])
                         F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
                         if F_b is not None:
-                            row_data['fHβ_R'] = fH_b
-                            row_data['ffβ_R'] = ff_b
-                            row_data['Fβ_R'] = F_b
-                            row_data['Cb_R'] = Cb
-                            has_data = True
+                            row_data_helix['fHβ_R'] = fH_b
+                            row_data_helix['ffβ_R'] = ff_b
+                            row_data_helix['Fβ_R'] = F_b
+                            row_data_helix['Cb_R'] = Cb
+                            has_helix_data = True
             
-            if has_data:
-                helix_sections_data.append(row_data)
-        
-        if helix_sections_data:
-            df_helix = pd.DataFrame(helix_sections_data)
-            # 定义列顺序
-            columns = ['Tooth', 'fHβ_L', 'ffβ_L', 'Fβ_L', 'Cb_L', 'fHβ_R', 'ffβ_R', 'Fβ_R', 'Cb_R']
-            # 只保留存在的列
-            available_columns = [col for col in columns if col in df_helix.columns]
-            df_helix = df_helix[available_columns]
-            
-            st.dataframe(df_helix.style.format({
-                'fHβ_L': '{:.2f}', 'ffβ_L': '{:.2f}', 'Fβ_L': '{:.2f}', 'Cb_L': '{:.2f}',
-                'fHβ_R': '{:.2f}', 'ffβ_R': '{:.2f}', 'Fβ_R': '{:.2f}', 'Cb_R': '{:.2f}'
-            }), use_container_width=True, hide_index=True)
-        else:
-            st.info("未找到齿向三截面数据")
+            if has_helix_data:
+                helix_sections_data.append(row_data_helix)
         
         # 显示详细曲线图 - 按类型分组：左齿形、右齿形、左齿向、右齿向
         st.markdown("#### 详细曲线图")
@@ -2175,6 +2142,40 @@ if uploaded_file is not None:
                         ax.set_xlabel(f'{section}', fontsize=10, fontweight='bold')
                         plt.tight_layout()
                         st.pyplot(fig)
+        
+        # 显示数据表 - 放在曲线图后面
+        st.markdown("---")
+        st.markdown("#### 数据汇总表")
+        
+        # Profile 齿形偏差表
+        st.markdown("**Profile 齿形偏差**")
+        if profile_sections_data:
+            df_profile = pd.DataFrame(profile_sections_data)
+            columns = ['Tooth', 'fHα_L', 'ffα_L', 'Fα_L', 'Ca_L', 'fHα_R', 'ffα_R', 'Fα_R', 'Ca_R']
+            available_columns = [col for col in columns if col in df_profile.columns]
+            df_profile = df_profile[available_columns]
+            
+            st.dataframe(df_profile.style.format({
+                'fHα_L': '{:.2f}', 'ffα_L': '{:.2f}', 'Fα_L': '{:.2f}', 'Ca_L': '{:.2f}',
+                'fHα_R': '{:.2f}', 'ffα_R': '{:.2f}', 'Fα_R': '{:.2f}', 'Ca_R': '{:.2f}'
+            }), use_container_width=True, hide_index=True)
+        else:
+            st.info("未找到齿形三截面数据")
+        
+        # Helix 齿向偏差表
+        st.markdown("**Helix 齿向偏差**")
+        if helix_sections_data:
+            df_helix = pd.DataFrame(helix_sections_data)
+            columns = ['Tooth', 'fHβ_L', 'ffβ_L', 'Fβ_L', 'Cb_L', 'fHβ_R', 'ffβ_R', 'Fβ_R', 'Cb_R']
+            available_columns = [col for col in columns if col in df_helix.columns]
+            df_helix = df_helix[available_columns]
+            
+            st.dataframe(df_helix.style.format({
+                'fHβ_L': '{:.2f}', 'ffβ_L': '{:.2f}', 'Fβ_L': '{:.2f}', 'Cb_L': '{:.2f}',
+                'fHβ_R': '{:.2f}', 'ffβ_R': '{:.2f}', 'Fβ_R': '{:.2f}', 'Cb_R': '{:.2f}'
+            }), use_container_width=True, hide_index=True)
+        else:
+            st.info("未找到齿向三截面数据")
     
     # 清理临时文件
     if os.path.exists(temp_path):
