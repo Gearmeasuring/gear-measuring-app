@@ -188,6 +188,89 @@ if uploaded_file is not None:
         gear_data_dict = None
         use_gear_analysis = False
     
+    # 辅助函数：计算偏差参数（与PDF报告完全一致）- 所有页面共用
+    def calc_profile_deviations(values):
+        """计算齿形偏差参数 - 与PDF报告算法一致"""
+        if values is None or len(values) < 10:
+            return None, None, None, None
+        
+        data = np.array(values)
+        n = len(data)
+        idx_start = int(n * 0.15)
+        idx_end = int(n * 0.85)
+        eval_values = data[idx_start:idx_end]
+        
+        if len(eval_values) < 2:
+            return None, None, None, None
+        
+        # 总偏差 F_alpha（峰峰值）
+        F_alpha = np.max(eval_values) - np.min(eval_values)
+        
+        # 拟合直线（最小二乘法）
+        x = np.arange(len(eval_values))
+        coeffs = np.polyfit(x, eval_values, 1)
+        trend = coeffs[0] * x + coeffs[1]
+        
+        # fH_alpha - 齿形倾斜偏差（趋势线的差值）
+        fH_alpha = trend[-1] - trend[0]
+        
+        # ff_alpha - 齿形形状偏差（去除趋势后的残余分量峰峰值）
+        residual = eval_values - trend
+        ff_alpha = np.max(residual) - np.min(residual)
+        
+        # Ca - 鼓形量（抛物线拟合）
+        if len(eval_values) >= 3:
+            x2 = np.arange(len(eval_values))
+            coeffs2 = np.polyfit(x2, eval_values, 2)
+            a = coeffs2[0]
+            L = len(eval_values)
+            Ca = -a * (L ** 2) / 4
+        else:
+            Ca = 0.0
+        
+        return F_alpha, fH_alpha, ff_alpha, Ca
+    
+    def calc_lead_deviations(values):
+        """计算齿向偏差参数 - 与PDF报告算法一致"""
+        if values is None or len(values) < 10:
+            return None, None, None, None
+        
+        data = np.array(values)
+        n = len(data)
+        idx_start = int(n * 0.15)
+        idx_end = int(n * 0.85)
+        eval_values = data[idx_start:idx_end]
+        
+        if len(eval_values) < 2:
+            return None, None, None, None
+        
+        # 总偏差 F_beta（峰峰值）
+        F_beta = np.max(eval_values) - np.min(eval_values)
+        
+        # 拟合直线（最小二乘法）
+        x = np.arange(len(eval_values))
+        coeffs = np.polyfit(x, eval_values, 1)
+        trend = coeffs[0] * x + coeffs[1]
+        
+        # fH_beta - 齿向倾斜偏差（趋势线的差值）
+        fH_beta = trend[-1] - trend[0]
+        
+        # ff_beta - 齿向形状偏差（去除趋势后的残余分量峰峰值）
+        residual = eval_values - trend
+        ff_beta = np.max(residual) - np.min(residual)
+        
+        # Cb - 鼓形量（抛物线拟合）
+        if len(eval_values) >= 3:
+            x2 = np.arange(len(eval_values))
+            coeffs2 = np.polyfit(x2, eval_values, 2)
+            a = coeffs2[0]
+            L = len(eval_values)
+            Cb = -a * (L ** 2) / 4
+        else:
+            Cb = 0.0
+        
+        return F_beta, fH_beta, ff_beta, Cb
+    
     if page == '📄 专业报告':
         st.markdown("## Gear Profile/Lead Report")
         
@@ -283,89 +366,6 @@ if uploaded_file is not None:
         
         # 获取所有测量齿号并排序
         all_measured_teeth = sorted(list(measured_teeth_profile.union(measured_teeth_helix)))
-        
-        # 辅助函数：计算偏差参数（与PDF报告完全一致）
-        def calc_profile_deviations(values):
-            """计算齿形偏差参数 - 与PDF报告算法一致"""
-            if values is None or len(values) < 10:
-                return None, None, None, None, None
-            
-            data = np.array(values)
-            n = len(data)
-            idx_start = int(n * 0.15)
-            idx_end = int(n * 0.85)
-            eval_values = data[idx_start:idx_end]
-            
-            if len(eval_values) < 2:
-                return None, None, None, None, None
-            
-            # 总偏差 F_alpha（峰峰值）
-            F_alpha = np.max(eval_values) - np.min(eval_values)
-            
-            # 拟合直线（最小二乘法）
-            x = np.arange(len(eval_values))
-            coeffs = np.polyfit(x, eval_values, 1)
-            trend = coeffs[0] * x + coeffs[1]
-            
-            # fH_alpha - 齿形倾斜偏差（趋势线的差值）
-            fH_alpha = trend[-1] - trend[0]
-            
-            # ff_alpha - 齿形形状偏差（去除趋势后的残余分量峰峰值）
-            residual = eval_values - trend
-            ff_alpha = np.max(residual) - np.min(residual)
-            
-            # Ca - 鼓形量（抛物线拟合）
-            if len(eval_values) >= 3:
-                x2 = np.arange(len(eval_values))
-                coeffs2 = np.polyfit(x2, eval_values, 2)
-                a = coeffs2[0]
-                L = len(eval_values)
-                Ca = -a * (L ** 2) / 4
-            else:
-                Ca = 0.0
-            
-            return F_alpha, fH_alpha, ff_alpha, Ca
-        
-        def calc_lead_deviations(values):
-            """计算齿向偏差参数 - 与PDF报告算法一致"""
-            if values is None or len(values) < 10:
-                return None, None, None, None
-            
-            data = np.array(values)
-            n = len(data)
-            idx_start = int(n * 0.15)
-            idx_end = int(n * 0.85)
-            eval_values = data[idx_start:idx_end]
-            
-            if len(eval_values) < 2:
-                return None, None, None, None
-            
-            # 总偏差 F_beta（峰峰值）
-            F_beta = np.max(eval_values) - np.min(eval_values)
-            
-            # 拟合直线（最小二乘法）
-            x = np.arange(len(eval_values))
-            coeffs = np.polyfit(x, eval_values, 1)
-            trend = coeffs[0] * x + coeffs[1]
-            
-            # fH_beta - 齿向倾斜偏差（趋势线的差值）
-            fH_beta = trend[-1] - trend[0]
-            
-            # ff_beta - 齿向形状偏差（去除趋势后的残余分量峰峰值）
-            residual = eval_values - trend
-            ff_beta = np.max(residual) - np.min(residual)
-            
-            # Cb - 鼓形量（抛物线拟合）
-            if len(eval_values) >= 3:
-                x2 = np.arange(len(eval_values))
-                coeffs2 = np.polyfit(x2, eval_values, 2)
-                a = coeffs2[0]
-                L = len(eval_values)
-                Cb = -a * (L ** 2) / 4
-            else:
-                Cb = 0.0
-            
-            return F_beta, fH_beta, ff_beta, Cb
         
         # ========== Profile 齿形分析 ==========
         st.markdown("#### Profile")
