@@ -552,8 +552,6 @@ if uploaded_file is not None:
                     tol_row['Ca'] = ''
                     tol_row['fHαm'] = ''
                     
-                    df_left = pd.concat([df_left, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
-                    
                     # 在最大值行添加质量等级标注
                     for col, tol_code in [('fHα', 'fHa'), ('ffα', 'ffa'), ('Fα', 'Fa')]:
                         max_val = max_row[col]
@@ -561,11 +559,23 @@ if uploaded_file is not None:
                             quality = calculate_quality_grade(max_val, 'profile', tol_code)
                             if quality:
                                 max_row[col] = f"{max_val:.2f} Q{quality}"
-                                df_left.loc[df_left['Tooth'] == 'Max', col] = max_row[col]
                     
-                    st.dataframe(df_left[['Tooth', 'fHα', 'fHαm', 'ffα', 'Fα', 'Ca']].style.format({
-                        'fHα': '{:.2f}', 'fHαm': '{:.2f}', 'ffα': '{:.2f}', 'Fα': '{:.2f}', 'Ca': '{:.2f}'
-                    }, na_rep=''), use_container_width=True, hide_index=True)
+                    df_left = pd.concat([df_left, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
+                    
+                    # 自定义格式化函数
+                    def format_value(x):
+                        if pd.isna(x):
+                            return ''
+                        if isinstance(x, str):
+                            return x
+                        if isinstance(x, (int, float)):
+                            return f'{x:.2f}'
+                        return str(x)
+                    
+                    df_display = df_left[['Tooth', 'fHα', 'fHαm', 'ffα', 'Fα', 'Ca']].copy()
+                    for col in ['fHα', 'fHαm', 'ffα', 'Fα', 'Ca']:
+                        df_display[col] = df_display[col].apply(format_value)
+                    st.dataframe(df_display, use_container_width=True, hide_index=True)
             
             # 右齿面曲线图
             if profile_teeth_right:
@@ -671,8 +681,6 @@ if uploaded_file is not None:
                     tol_row['Ca'] = ''
                     tol_row['fHαm'] = ''
                     
-                    df_right = pd.concat([df_right, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
-                    
                     # 在最大值行添加质量等级标注
                     for col, tol_code in [('fHα', 'fHa'), ('ffα', 'ffa'), ('Fα', 'Fa')]:
                         max_val = max_row[col]
@@ -680,11 +688,23 @@ if uploaded_file is not None:
                             quality = calculate_quality_grade(max_val, 'profile', tol_code)
                             if quality:
                                 max_row[col] = f"{max_val:.2f} Q{quality}"
-                                df_right.loc[df_right['Tooth'] == 'Max', col] = max_row[col]
                     
-                    st.dataframe(df_right[['Tooth', 'fHα', 'fHαm', 'ffα', 'Fα', 'Ca']].style.format({
-                        'fHα': '{:.2f}', 'fHαm': '{:.2f}', 'ffα': '{:.2f}', 'Fα': '{:.2f}', 'Ca': '{:.2f}'
-                    }, na_rep=''), use_container_width=True, hide_index=True)
+                    df_right = pd.concat([df_right, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
+                    
+                    # 自定义格式化函数
+                    def format_value(x):
+                        if pd.isna(x):
+                            return ''
+                        if isinstance(x, str):
+                            return x
+                        if isinstance(x, (int, float)):
+                            return f'{x:.2f}'
+                        return str(x)
+                    
+                    df_display = df_right[['Tooth', 'fHα', 'fHαm', 'ffα', 'Fα', 'Ca']].copy()
+                    for col in ['fHα', 'fHαm', 'ffα', 'Fα', 'Ca']:
+                        df_display[col] = df_display[col].apply(format_value)
+                    st.dataframe(df_display, use_container_width=True, hide_index=True)
         
         # ========== Helix 齿向分析 ==========
         st.markdown("#### Helix")
@@ -798,8 +818,6 @@ if uploaded_file is not None:
                     tol_row['Cb'] = ''
                     tol_row['fHβm'] = ''
                     
-                    df_left_h = pd.concat([df_left_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
-                    
                     # 在最大值行添加质量等级标注
                     for col, tol_code in [('fHβ', 'fHb'), ('ffβ', 'ffb'), ('Fβ', 'Fb')]:
                         max_val = max_row[col]
@@ -807,11 +825,23 @@ if uploaded_file is not None:
                             quality = calculate_quality_grade(max_val, 'lead', tol_code)
                             if quality:
                                 max_row[col] = f"{max_val:.2f} Q{quality}"
-                                df_left_h.loc[df_left_h['Tooth'] == 'Max', col] = max_row[col]
                     
-                    st.dataframe(df_left_h[['Tooth', 'fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']].style.format({
-                        'fHβ': '{:.2f}', 'fHβm': '{:.2f}', 'ffβ': '{:.2f}', 'Fβ': '{:.2f}', 'Cb': '{:.2f}'
-                    }, na_rep=''), use_container_width=True, hide_index=True)
+                    df_left_h = pd.concat([df_left_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
+                    
+                    # 自定义格式化函数
+                    def format_value(x):
+                        if pd.isna(x):
+                            return ''
+                        if isinstance(x, str):
+                            return x
+                        if isinstance(x, (int, float)):
+                            return f'{x:.2f}'
+                        return str(x)
+                    
+                    df_display = df_left_h[['Tooth', 'fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']].copy()
+                    for col in ['fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']:
+                        df_display[col] = df_display[col].apply(format_value)
+                    st.dataframe(df_display, use_container_width=True, hide_index=True)
             
             # 右齿面曲线图
             if helix_teeth_right:
@@ -917,8 +947,6 @@ if uploaded_file is not None:
                     tol_row['Cb'] = ''
                     tol_row['fHβm'] = ''
                     
-                    df_right_h = pd.concat([df_right_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
-                    
                     # 在最大值行添加质量等级标注
                     for col, tol_code in [('fHβ', 'fHb'), ('ffβ', 'ffb'), ('Fβ', 'Fb')]:
                         max_val = max_row[col]
@@ -926,11 +954,23 @@ if uploaded_file is not None:
                             quality = calculate_quality_grade(max_val, 'lead', tol_code)
                             if quality:
                                 max_row[col] = f"{max_val:.2f} Q{quality}"
-                                df_right_h.loc[df_right_h['Tooth'] == 'Max', col] = max_row[col]
                     
-                    st.dataframe(df_right_h[['Tooth', 'fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']].style.format({
-                        'fHβ': '{:.2f}', 'fHβm': '{:.2f}', 'ffβ': '{:.2f}', 'Fβ': '{:.2f}', 'Cb': '{:.2f}'
-                    }, na_rep=''), use_container_width=True, hide_index=True)
+                    df_right_h = pd.concat([df_right_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
+                    
+                    # 自定义格式化函数
+                    def format_value(x):
+                        if pd.isna(x):
+                            return ''
+                        if isinstance(x, str):
+                            return x
+                        if isinstance(x, (int, float)):
+                            return f'{x:.2f}'
+                        return str(x)
+                    
+                    df_display = df_right_h[['Tooth', 'fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']].copy()
+                    for col in ['fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']:
+                        df_display[col] = df_display[col].apply(format_value)
+                    st.dataframe(df_display, use_container_width=True, hide_index=True)
             
     elif page == '📊 周节详细报表':
         st.markdown("## Gear Spacing Report - 周节详细报表")
