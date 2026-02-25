@@ -2104,6 +2104,17 @@ if uploaded_file is not None:
         # 获取三截面数据（齿号1的a, b, c三个截面）
         tooth_sections = ['1a', '1b', '1c']
         
+        # 调试信息：显示可用的齿号
+        st.markdown("#### 调试信息")
+        if 'left' in profile_data:
+            st.write(f"Profile Left teeth: {list(profile_data['left'].keys())[:10]}...")
+        if 'right' in profile_data:
+            st.write(f"Profile Right teeth: {list(profile_data['right'].keys())[:10]}...")
+        if 'left' in helix_data:
+            st.write(f"Helix Left teeth: {list(helix_data['left'].keys())[:10]}...")
+        if 'right' in helix_data:
+            st.write(f"Helix Right teeth: {list(helix_data['right'].keys())[:10]}...")
+        
         # 先收集所有数据（用于后面的表格显示）
         profile_sections_data = []
         helix_sections_data = []
