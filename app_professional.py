@@ -1064,9 +1064,10 @@ if uploaded_file is not None:
         
         if not measured_teeth_list:
             st.warning("未找到测量数据")
-        else:
-            # 使用下拉框选择有测量数据的齿
-            selected_tooth = st.selectbox("Select Tooth Number", options=measured_teeth_list)
+            st.stop()
+        
+        # 使用下拉框选择有测量数据的齿
+        selected_tooth = st.selectbox("Select Tooth Number", options=measured_teeth_list)
         
         # 获取齿轮参数
         ze = gear_params.teeth_count if gear_params else 87
