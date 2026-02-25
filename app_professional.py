@@ -453,8 +453,8 @@ if uploaded_file is not None:
                         max_row[col] = df_left[col].max()
                     # fHαm 是 fHα 的平均值
                     mean_row['fHαm'] = df_left['fHα'].mean()
-                    max_row['fHαm'] = ''
-                    df_left['fHαm'] = ''
+                    max_row['fHαm'] = np.nan
+                    df_left['fHαm'] = np.nan
                     df_left = pd.concat([df_left, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
                     st.dataframe(df_left[['Tooth', 'fHα', 'fHαm', 'ffα', 'Fα', 'Ca']].style.format({col: '{:.2f}' for col in ['fHα', 'fHαm', 'ffα', 'Fα', 'Ca']}), use_container_width=True, hide_index=True)
             
@@ -539,8 +539,8 @@ if uploaded_file is not None:
                         mean_row[col] = df_right[col].mean()
                         max_row[col] = df_right[col].max()
                     mean_row['fHαm'] = df_right['fHα'].mean()
-                    max_row['fHαm'] = ''
-                    df_right['fHαm'] = ''
+                    max_row['fHαm'] = np.nan
+                    df_right['fHαm'] = np.nan
                     df_right = pd.concat([df_right, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
                     st.dataframe(df_right[['Tooth', 'fHα', 'fHαm', 'ffα', 'Fα', 'Ca']].style.format({col: '{:.2f}' for col in ['fHα', 'fHαm', 'ffα', 'Fα', 'Ca']}), use_container_width=True, hide_index=True)
         
@@ -633,8 +633,8 @@ if uploaded_file is not None:
                         mean_row[col] = df_left_h[col].mean()
                         max_row[col] = df_left_h[col].max()
                     mean_row['fHβm'] = df_left_h['fHβ'].mean()
-                    max_row['fHβm'] = ''
-                    df_left_h['fHβm'] = ''
+                    max_row['fHβm'] = np.nan
+                    df_left_h['fHβm'] = np.nan
                     df_left_h = pd.concat([df_left_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
                     st.dataframe(df_left_h[['Tooth', 'fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']].style.format({col: '{:.2f}' for col in ['fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']}), use_container_width=True, hide_index=True)
             
@@ -719,8 +719,8 @@ if uploaded_file is not None:
                         mean_row[col] = df_right_h[col].mean()
                         max_row[col] = df_right_h[col].max()
                     mean_row['fHβm'] = df_right_h['fHβ'].mean()
-                    max_row['fHβm'] = ''
-                    df_right_h['fHβm'] = ''
+                    max_row['fHβm'] = np.nan
+                    df_right_h['fHβm'] = np.nan
                     df_right_h = pd.concat([df_right_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
                     st.dataframe(df_right_h[['Tooth', 'fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']].style.format({col: '{:.2f}' for col in ['fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']}), use_container_width=True, hide_index=True)
             
