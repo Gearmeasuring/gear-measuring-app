@@ -2099,21 +2099,35 @@ if uploaded_file is not None:
     
     elif page == '🔍 三截面扭曲数据':
         st.markdown("## 三截面扭曲数据报告")
-        st.markdown("### 齿号 1a, 1b, 1c 的齿形/齿向偏差分析")
         
-        # 获取三截面数据（齿号1的a, b, c三个截面）
-        tooth_sections = ['1a', '1b', '1c']
+        # 检测数据格式：检查是否有1a,1b,1c这样的三截面数据
+        all_teeth = set()
+        for side in ['left', 'right']:
+            if side in profile_data:
+                all_teeth.update(profile_data[side].keys())
+            if side in helix_data:
+                all_teeth.update(helix_data[side].keys())
         
-        # 调试信息：显示可用的齿号
-        st.markdown("#### 调试信息")
-        if 'left' in profile_data:
-            st.write(f"Profile Left teeth: {list(profile_data['left'].keys())[:10]}...")
-        if 'right' in profile_data:
-            st.write(f"Profile Right teeth: {list(profile_data['right'].keys())[:10]}...")
-        if 'left' in helix_data:
-            st.write(f"Helix Left teeth: {list(helix_data['left'].keys())[:10]}...")
-        if 'right' in helix_data:
-            st.write(f"Helix Right teeth: {list(helix_data['right'].keys())[:10]}...")
+        # 检查是否有三截面数据（1a, 1b, 1c）
+        has_three_section = any(t in all_teeth for t in ['1a', '1b', '1c'])
+        
+        if has_three_section:
+            st.markdown("### 齿号 1a, 1b, 1c 的齿形/齿向偏差分析")
+            tooth_sections = ['1a', '1b', '1c']
+        else:
+            # 如果没有三截面数据，检查是否有齿号1的数据
+            if '1' in all_teeth:
+                st.markdown("### 齿号 1 的齿形/齿向偏差分析")
+                tooth_sections = ['1']
+            else:
+                # 显示前3个可用的齿
+                available_teeth = sorted(list(all_teeth), key=tooth_sort_key)[:3]
+                if available_teeth:
+                    st.markdown(f"### 齿号 {', '.join(available_teeth)} 的齿形/齿向偏差分析")
+                    tooth_sections = available_teeth
+                else:
+                    st.warning("未找到可用的齿数据")
+                    st.stop()
         
         # 先收集所有数据（用于后面的表格显示）
         profile_sections_data = []
