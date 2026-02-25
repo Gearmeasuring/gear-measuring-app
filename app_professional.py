@@ -188,6 +188,16 @@ if uploaded_file is not None:
         gear_data_dict = None
         use_gear_analysis = False
     
+    # 辅助函数：齿号排序（处理数字和带后缀的齿号如 1, 1a, 2, 10）- 所有页面共用
+    def tooth_sort_key(tooth_id):
+        """将齿号转换为排序键，如 '1a' -> (1, 'a'), '10' -> (10, '')"""
+        match = re.match(r'(\d+)([a-z]?)', str(tooth_id))
+        if match:
+            num = int(match.group(1))
+            suffix = match.group(2)
+            return (num, suffix)
+        return (0, str(tooth_id))
+    
     # 辅助函数：计算偏差参数（与PDF报告完全一致）- 所有页面共用
     def calc_profile_deviations(values):
         """计算齿形偏差参数 - 与PDF报告算法一致"""
@@ -363,16 +373,6 @@ if uploaded_file is not None:
                 measured_teeth_profile.update(profile_data[side].keys())
             if side in helix_data:
                 measured_teeth_helix.update(helix_data[side].keys())
-        
-        # 辅助函数：齿号排序（处理数字和带后缀的齿号如 1, 1a, 2, 10）
-        def tooth_sort_key(tooth_id):
-            """将齿号转换为排序键，如 '1a' -> (1, 'a'), '10' -> (10, '')"""
-            match = re.match(r'(\d+)([a-z]?)', str(tooth_id))
-            if match:
-                num = int(match.group(1))
-                suffix = match.group(2)
-                return (num, suffix)
-            return (0, str(tooth_id))
         
         # 获取所有测量齿号并排序
         all_measured_teeth = sorted(list(measured_teeth_profile.union(measured_teeth_helix)), key=tooth_sort_key)
