@@ -281,7 +281,7 @@ if uploaded_file is not None:
         def calc_profile_deviations(values):
             """计算齿形偏差参数 - 与PDF报告算法一致"""
             if values is None or len(values) < 10:
-                return None, None, None, None
+                return None, None, None, None, None
             
             data = np.array(values)
             n = len(data)
@@ -290,7 +290,7 @@ if uploaded_file is not None:
             eval_values = data[idx_start:idx_end]
             
             if len(eval_values) < 2:
-                return None, None, None, None
+                return None, None, None, None, None
             
             # 总偏差 F_alpha（峰峰值）
             F_alpha = np.max(eval_values) - np.min(eval_values)
@@ -302,6 +302,10 @@ if uploaded_file is not None:
             
             # fH_alpha - 齿形倾斜偏差（趋势线的差值）
             fH_alpha = trend[-1] - trend[0]
+            
+            # fHαm - 齿形倾斜偏差（单位长度）
+            eval_length = len(eval_values)
+            fH_alpha_m = fH_alpha / eval_length if eval_length > 0 else 0
             
             # ff_alpha - 齿形形状偏差（去除趋势后的残余分量峰峰值）
             residual = eval_values - trend
@@ -317,12 +321,12 @@ if uploaded_file is not None:
             else:
                 Ca = 0.0
             
-            return F_alpha, fH_alpha, ff_alpha, Ca
+            return F_alpha, fH_alpha, fH_alpha_m, ff_alpha, Ca
         
         def calc_lead_deviations(values):
             """计算齿向偏差参数 - 与PDF报告算法一致"""
             if values is None or len(values) < 10:
-                return None, None, None, None
+                return None, None, None, None, None
             
             data = np.array(values)
             n = len(data)
@@ -331,7 +335,7 @@ if uploaded_file is not None:
             eval_values = data[idx_start:idx_end]
             
             if len(eval_values) < 2:
-                return None, None, None, None
+                return None, None, None, None, None
             
             # 总偏差 F_beta（峰峰值）
             F_beta = np.max(eval_values) - np.min(eval_values)
@@ -343,6 +347,10 @@ if uploaded_file is not None:
             
             # fH_beta - 齿向倾斜偏差（趋势线的差值）
             fH_beta = trend[-1] - trend[0]
+            
+            # fHβm - 齿向倾斜偏差（单位长度）
+            eval_length = len(eval_values)
+            fH_beta_m = fH_beta / eval_length if eval_length > 0 else 0
             
             # ff_beta - 齿向形状偏差（去除趋势后的残余分量峰峰值）
             residual = eval_values - trend
@@ -358,7 +366,7 @@ if uploaded_file is not None:
             else:
                 Cb = 0.0
             
-            return F_beta, fH_beta, ff_beta, Cb
+            return F_beta, fH_beta, fH_beta_m, ff_beta, Cb
         
         # ========== Profile 齿形分析 ==========
         st.markdown("#### Profile")
@@ -385,32 +393,50 @@ if uploaded_file is not None:
                         best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
                         values = np.array(tooth_profiles[best_z])
                         
-                        fig, ax = plt.subplots(figsize=(1.5, 4))
+                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
                         y_positions = np.linspace(d1, d2, len(values))
                         
-                        ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=0.6)
-                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.3)
+                        # 绘制曲线（红色）
+                        ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=0.8)
                         
+                        # 零点垂直线
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        
+                        # 标记起测点、起评点、终评点、终测点
                         n = len(values)
-                        idx_eval_start = int(n * 0.15)
-                        idx_eval_end = int(n * 0.85)
-                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=3, color='green', markerfacecolor='green')
-                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=3, color='orange', markerfacecolor='orange')
+                        idx_meas_start = 0  # 起测点
+                        idx_eval_start = int(n * 0.15)  # 起评点
+                        idx_eval_end = int(n * 0.85)  # 终评点
+                        idx_meas_end = n - 1  # 终测点
+                        
+                        # 起测点（蓝色三角形向下）
+                        ax.plot(1, y_positions[idx_meas_start], 'v', markersize=4, color='blue', markerfacecolor='blue')
+                        # 起评点（绿色三角形向下）
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=4, color='green', markerfacecolor='green')
+                        # 终评点（橙色三角形向上）
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=4, color='orange', markerfacecolor='orange')
+                        # 终测点（红色三角形向上）
+                        ax.plot(1, y_positions[idx_meas_end], '^', markersize=4, color='red', markerfacecolor='red')
+                        
+                        # 添加水平网格线
+                        ax.grid(True, axis='y', linestyle=':', linewidth=0.5, color='gray')
+                        # 添加垂直网格线
+                        ax.grid(True, axis='x', linestyle=':', linewidth=0.5, color='gray')
                         
                         ax.set_xlim(0.5, 1.5)
-                        ax.set_xlabel(f'{tooth_id}', fontsize=6, fontweight='bold')
+                        ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
                         ax.set_xticks([])
                         ax.set_yticks([])
-                        ax.set_frame_on(False)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
                         
-                        F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
+                        F_a, fH_a, fH_a_m, ff_a, Ca = calc_profile_deviations(values)
                         if F_a is not None:
                             left_profile_results.append({
                                 'Tooth': tooth_id,
                                 'fHα': fH_a,
+                                'fHαm': fH_a_m,
                                 'ffα': ff_a,
                                 'Fα': F_a,
                                 'Ca': Ca
@@ -422,11 +448,11 @@ if uploaded_file is not None:
                     # 计算平均值和最大值
                     mean_row = {'Tooth': 'Mean'}
                     max_row = {'Tooth': 'Max'}
-                    for col in ['fHα', 'ffα', 'Fα', 'Ca']:
+                    for col in ['fHα', 'fHαm', 'ffα', 'Fα', 'Ca']:
                         mean_row[col] = df_left[col].mean()
                         max_row[col] = df_left[col].max()
                     df_left = pd.concat([df_left, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
-                    st.dataframe(df_left.style.format({col: '{:.2f}' for col in ['fHα', 'ffα', 'Fα', 'Ca']}), use_container_width=True, hide_index=True)
+                    st.dataframe(df_left.style.format({col: '{:.2f}' for col in ['fHα', 'fHαm', 'ffα', 'Fα', 'Ca']}), use_container_width=True, hide_index=True)
             
             # 右齿面曲线图
             if profile_teeth_right:
@@ -444,32 +470,50 @@ if uploaded_file is not None:
                         best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
                         values = np.array(tooth_profiles[best_z])
                         
-                        fig, ax = plt.subplots(figsize=(1.5, 4))
+                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
                         y_positions = np.linspace(d1, d2, len(values))
                         
-                        ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=0.6)
-                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.3)
+                        # 绘制曲线（红色）
+                        ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=0.8)
                         
+                        # 零点垂直线
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        
+                        # 标记起测点、起评点、终评点、终测点
                         n = len(values)
-                        idx_eval_start = int(n * 0.15)
-                        idx_eval_end = int(n * 0.85)
-                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=3, color='green', markerfacecolor='green')
-                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=3, color='orange', markerfacecolor='orange')
+                        idx_meas_start = 0  # 起测点
+                        idx_eval_start = int(n * 0.15)  # 起评点
+                        idx_eval_end = int(n * 0.85)  # 终评点
+                        idx_meas_end = n - 1  # 终测点
+                        
+                        # 起测点（蓝色三角形向下）
+                        ax.plot(1, y_positions[idx_meas_start], 'v', markersize=4, color='blue', markerfacecolor='blue')
+                        # 起评点（绿色三角形向下）
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=4, color='green', markerfacecolor='green')
+                        # 终评点（橙色三角形向上）
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=4, color='orange', markerfacecolor='orange')
+                        # 终测点（红色三角形向上）
+                        ax.plot(1, y_positions[idx_meas_end], '^', markersize=4, color='red', markerfacecolor='red')
+                        
+                        # 添加水平网格线
+                        ax.grid(True, axis='y', linestyle=':', linewidth=0.5, color='gray')
+                        # 添加垂直网格线
+                        ax.grid(True, axis='x', linestyle=':', linewidth=0.5, color='gray')
                         
                         ax.set_xlim(0.5, 1.5)
-                        ax.set_xlabel(f'{tooth_id}', fontsize=6, fontweight='bold')
+                        ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
                         ax.set_xticks([])
                         ax.set_yticks([])
-                        ax.set_frame_on(False)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
                         
-                        F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
+                        F_a, fH_a, fH_a_m, ff_a, Ca = calc_profile_deviations(values)
                         if F_a is not None:
                             right_profile_results.append({
                                 'Tooth': tooth_id,
                                 'fHα': fH_a,
+                                'fHαm': fH_a_m,
                                 'ffα': ff_a,
                                 'Fα': F_a,
                                 'Ca': Ca
@@ -479,11 +523,11 @@ if uploaded_file is not None:
                     df_right = pd.DataFrame(right_profile_results)
                     mean_row = {'Tooth': 'Mean'}
                     max_row = {'Tooth': 'Max'}
-                    for col in ['fHα', 'ffα', 'Fα', 'Ca']:
+                    for col in ['fHα', 'fHαm', 'ffα', 'Fα', 'Ca']:
                         mean_row[col] = df_right[col].mean()
                         max_row[col] = df_right[col].max()
                     df_right = pd.concat([df_right, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
-                    st.dataframe(df_right.style.format({col: '{:.2f}' for col in ['fHα', 'ffα', 'Fα', 'Ca']}), use_container_width=True, hide_index=True)
+                    st.dataframe(df_right.style.format({col: '{:.2f}' for col in ['fHα', 'fHαm', 'ffα', 'Fα', 'Ca']}), use_container_width=True, hide_index=True)
         
         # ========== Helix 齿向分析 ==========
         st.markdown("#### Helix")
@@ -509,32 +553,50 @@ if uploaded_file is not None:
                         best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
                         values = np.array(tooth_helix[best_d])
                         
-                        fig, ax = plt.subplots(figsize=(1.5, 4))
+                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
                         y_positions = np.linspace(b1, b2, len(values))
                         
-                        ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=0.6)
-                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.3)
+                        # 绘制曲线（黑色）
+                        ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=0.8)
                         
+                        # 零点垂直线
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        
+                        # 标记起测点、起评点、终评点、终测点
                         n = len(values)
-                        idx_eval_start = int(n * 0.15)
-                        idx_eval_end = int(n * 0.85)
-                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=3, color='green', markerfacecolor='green')
-                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=3, color='orange', markerfacecolor='orange')
+                        idx_meas_start = 0  # 起测点
+                        idx_eval_start = int(n * 0.15)  # 起评点
+                        idx_eval_end = int(n * 0.85)  # 终评点
+                        idx_meas_end = n - 1  # 终测点
+                        
+                        # 起测点（蓝色三角形向下）
+                        ax.plot(1, y_positions[idx_meas_start], 'v', markersize=4, color='blue', markerfacecolor='blue')
+                        # 起评点（绿色三角形向下）
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=4, color='green', markerfacecolor='green')
+                        # 终评点（橙色三角形向上）
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=4, color='orange', markerfacecolor='orange')
+                        # 终测点（红色三角形向上）
+                        ax.plot(1, y_positions[idx_meas_end], '^', markersize=4, color='red', markerfacecolor='red')
+                        
+                        # 添加水平网格线
+                        ax.grid(True, axis='y', linestyle=':', linewidth=0.5, color='gray')
+                        # 添加垂直网格线
+                        ax.grid(True, axis='x', linestyle=':', linewidth=0.5, color='gray')
                         
                         ax.set_xlim(0.5, 1.5)
-                        ax.set_xlabel(f'{tooth_id}', fontsize=6, fontweight='bold')
+                        ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
                         ax.set_xticks([])
                         ax.set_yticks([])
-                        ax.set_frame_on(False)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
                         
-                        F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
+                        F_b, fH_b, fH_b_m, ff_b, Cb = calc_lead_deviations(values)
                         if F_b is not None:
                             left_helix_results.append({
                                 'Tooth': tooth_id,
                                 'fHβ': fH_b,
+                                'fHβm': fH_b_m,
                                 'ffβ': ff_b,
                                 'Fβ': F_b,
                                 'Cb': Cb
@@ -544,11 +606,11 @@ if uploaded_file is not None:
                     df_left_h = pd.DataFrame(left_helix_results)
                     mean_row = {'Tooth': 'Mean'}
                     max_row = {'Tooth': 'Max'}
-                    for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']:
+                    for col in ['fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']:
                         mean_row[col] = df_left_h[col].mean()
                         max_row[col] = df_left_h[col].max()
                     df_left_h = pd.concat([df_left_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
-                    st.dataframe(df_left_h.style.format({col: '{:.2f}' for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']}), use_container_width=True, hide_index=True)
+                    st.dataframe(df_left_h.style.format({col: '{:.2f}' for col in ['fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']}), use_container_width=True, hide_index=True)
             
             # 右齿面曲线图
             if helix_teeth_right:
@@ -566,32 +628,50 @@ if uploaded_file is not None:
                         best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
                         values = np.array(tooth_helix[best_d])
                         
-                        fig, ax = plt.subplots(figsize=(1.5, 4))
+                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
                         y_positions = np.linspace(b1, b2, len(values))
                         
-                        ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=0.6)
-                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.3)
+                        # 绘制曲线（黑色）
+                        ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=0.8)
                         
+                        # 零点垂直线
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        
+                        # 标记起测点、起评点、终评点、终测点
                         n = len(values)
-                        idx_eval_start = int(n * 0.15)
-                        idx_eval_end = int(n * 0.85)
-                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=3, color='green', markerfacecolor='green')
-                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=3, color='orange', markerfacecolor='orange')
+                        idx_meas_start = 0  # 起测点
+                        idx_eval_start = int(n * 0.15)  # 起评点
+                        idx_eval_end = int(n * 0.85)  # 终评点
+                        idx_meas_end = n - 1  # 终测点
+                        
+                        # 起测点（蓝色三角形向下）
+                        ax.plot(1, y_positions[idx_meas_start], 'v', markersize=4, color='blue', markerfacecolor='blue')
+                        # 起评点（绿色三角形向下）
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=4, color='green', markerfacecolor='green')
+                        # 终评点（橙色三角形向上）
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=4, color='orange', markerfacecolor='orange')
+                        # 终测点（红色三角形向上）
+                        ax.plot(1, y_positions[idx_meas_end], '^', markersize=4, color='red', markerfacecolor='red')
+                        
+                        # 添加水平网格线
+                        ax.grid(True, axis='y', linestyle=':', linewidth=0.5, color='gray')
+                        # 添加垂直网格线
+                        ax.grid(True, axis='x', linestyle=':', linewidth=0.5, color='gray')
                         
                         ax.set_xlim(0.5, 1.5)
-                        ax.set_xlabel(f'{tooth_id}', fontsize=6, fontweight='bold')
+                        ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
                         ax.set_xticks([])
                         ax.set_yticks([])
-                        ax.set_frame_on(False)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
                         
-                        F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
+                        F_b, fH_b, fH_b_m, ff_b, Cb = calc_lead_deviations(values)
                         if F_b is not None:
                             right_helix_results.append({
                                 'Tooth': tooth_id,
                                 'fHβ': fH_b,
+                                'fHβm': fH_b_m,
                                 'ffβ': ff_b,
                                 'Fβ': F_b,
                                 'Cb': Cb
@@ -601,11 +681,11 @@ if uploaded_file is not None:
                     df_right_h = pd.DataFrame(right_helix_results)
                     mean_row = {'Tooth': 'Mean'}
                     max_row = {'Tooth': 'Max'}
-                    for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']:
+                    for col in ['fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']:
                         mean_row[col] = df_right_h[col].mean()
                         max_row[col] = df_right_h[col].max()
                     df_right_h = pd.concat([df_right_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row])], ignore_index=True)
-                    st.dataframe(df_right_h.style.format({col: '{:.2f}' for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']}), use_container_width=True, hide_index=True)
+                    st.dataframe(df_right_h.style.format({col: '{:.2f}' for col in ['fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']}), use_container_width=True, hide_index=True)
             
     elif page == '📊 周节详细报表':
         st.markdown("## Gear Spacing Report - 周节详细报表")
