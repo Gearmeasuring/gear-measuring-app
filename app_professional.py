@@ -125,7 +125,7 @@ with st.sidebar:
 
     page = st.radio(
         "选择功能",
-        ['📄 专业报告', '📊 周节详细报表', '📈 单齿分析', '📉 合并曲线', '📊 频谱分析'],
+        ['📄 专业报告', '📊 周节详细报表', '📈 单齿分析', '📉 合并曲线', '📊 频谱分析', '🔍 三截面扭曲数据'],
         index=0
     )
 
@@ -1893,6 +1893,239 @@ if uploaded_file is not None:
                 ax.grid(True, alpha=0.3)
                 st.pyplot(fig)
     
+    elif page == '🔍 三截面扭曲数据':
+        st.markdown("## 三截面扭曲数据报告")
+        st.markdown("### 齿号 1a, 1b, 1c 的齿形/齿向偏差分析")
+        
+        # 获取三截面数据（齿号1的a, b, c三个截面）
+        tooth_sections = ['1a', '1b', '1c']
+        
+        # 显示齿形数据
+        st.markdown("#### Profile 齿形偏差")
+        
+        profile_sections_data = []
+        for section in tooth_sections:
+            # 尝试获取左齿面和右齿面的数据
+            for side in ['left', 'right']:
+                side_name = 'Left' if side == 'left' else 'Right'
+                if side in profile_data and section in profile_data[side]:
+                    tooth_data = profile_data[side][section]
+                    # 获取中间截面的数据
+                    if tooth_data:
+                        z_positions = list(tooth_data.keys())
+                        if z_positions:
+                            mid_z = z_positions[len(z_positions) // 2]
+                            values = np.array(tooth_data[mid_z])
+                            
+                            # 计算偏差
+                            F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
+                            if F_a is not None:
+                                profile_sections_data.append({
+                                    'Tooth': section,
+                                    'Side': side_name,
+                                    'fHα': fH_a,
+                                    'ffα': ff_a,
+                                    'Fα': F_a,
+                                    'Ca': Ca
+                                })
+        
+        if profile_sections_data:
+            df_profile = pd.DataFrame(profile_sections_data)
+            st.dataframe(df_profile.style.format({
+                'fHα': '{:.2f}',
+                'ffα': '{:.2f}',
+                'Fα': '{:.2f}',
+                'Ca': '{:.2f}'
+            }), use_container_width=True, hide_index=True)
+        else:
+            st.info("未找到齿形三截面数据")
+        
+        # 显示齿向数据
+        st.markdown("#### Helix 齿向偏差")
+        
+        helix_sections_data = []
+        for section in tooth_sections:
+            for side in ['left', 'right']:
+                side_name = 'Left' if side == 'left' else 'Right'
+                if side in helix_data and section in helix_data[side]:
+                    tooth_data = helix_data[side][section]
+                    if tooth_data:
+                        d_positions = list(tooth_data.keys())
+                        if d_positions:
+                            mid_d = d_positions[len(d_positions) // 2]
+                            values = np.array(tooth_data[mid_d])
+                            
+                            # 计算偏差
+                            F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
+                            if F_b is not None:
+                                helix_sections_data.append({
+                                    'Tooth': section,
+                                    'Side': side_name,
+                                    'fHβ': fH_b,
+                                    'ffβ': ff_b,
+                                    'Fβ': F_b,
+                                    'Cb': Cb
+                                })
+        
+        if helix_sections_data:
+            df_helix = pd.DataFrame(helix_sections_data)
+            st.dataframe(df_helix.style.format({
+                'fHβ': '{:.2f}',
+                'ffβ': '{:.2f}',
+                'Fβ': '{:.2f}',
+                'Cb': '{:.2f}'
+            }), use_container_width=True, hide_index=True)
+        else:
+            st.info("未找到齿向三截面数据")
+        
+        # 显示详细曲线图
+        st.markdown("#### 详细曲线图")
+        
+        for section in tooth_sections:
+            st.markdown(f"**齿号 {section}**")
+            
+            cols = st.columns(2)
+            
+            # 左齿面齿形
+            with cols[0]:
+                if 'left' in profile_data and section in profile_data['left']:
+                    tooth_profiles = profile_data['left'][section]
+                    if tooth_profiles:
+                        best_z = list(tooth_profiles.keys())[len(tooth_profiles)//2]
+                        values = np.array(tooth_profiles[best_z])
+                        
+                        fig, ax = plt.subplots(figsize=(4, 5))
+                        y_positions = np.linspace(da, de, len(values))
+                        ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=1.0)
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        
+                        # 标记点
+                        n = len(values)
+                        meas_length = de - da
+                        idx_eval_start = int((d1 - da) / meas_length * (n - 1))
+                        idx_eval_end = int((d2 - da) / meas_length * (n - 1))
+                        
+                        ax.plot(1, y_positions[0], 'v', markersize=8, color='blue')
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=8, color='green')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=8, color='orange')
+                        ax.plot(1, y_positions[-1], '^', markersize=8, color='red')
+                        
+                        ax.set_ylim(da - 1, de + 1)
+                        ax.set_yticks([da, d1, d2, de])
+                        ax.set_yticklabels([f'{da:.1f}', f'{d1:.1f}', f'{d2:.1f}', f'{de:.1f}'], fontsize=9)
+                        ax.set_xlim(0.3, 1.7)
+                        ax.set_xticks([0.5, 1.0, 1.5])
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=9)
+                        ax.grid(True, linestyle=':', linewidth=0.5, color='gray')
+                        ax.set_xlabel(f'{section} Left Profile', fontsize=10, fontweight='bold')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+            
+            # 右齿面齿形
+            with cols[1]:
+                if 'right' in profile_data and section in profile_data['right']:
+                    tooth_profiles = profile_data['right'][section]
+                    if tooth_profiles:
+                        best_z = list(tooth_profiles.keys())[len(tooth_profiles)//2]
+                        values = np.array(tooth_profiles[best_z])
+                        
+                        fig, ax = plt.subplots(figsize=(4, 5))
+                        y_positions = np.linspace(da, de, len(values))
+                        ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=1.0)
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        
+                        n = len(values)
+                        meas_length = de - da
+                        idx_eval_start = int((d1 - da) / meas_length * (n - 1))
+                        idx_eval_end = int((d2 - da) / meas_length * (n - 1))
+                        
+                        ax.plot(1, y_positions[0], 'v', markersize=8, color='blue')
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=8, color='green')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=8, color='orange')
+                        ax.plot(1, y_positions[-1], '^', markersize=8, color='red')
+                        
+                        ax.set_ylim(da - 1, de + 1)
+                        ax.set_yticks([da, d1, d2, de])
+                        ax.set_yticklabels([f'{da:.1f}', f'{d1:.1f}', f'{d2:.1f}', f'{de:.1f}'], fontsize=9)
+                        ax.set_xlim(0.3, 1.7)
+                        ax.set_xticks([0.5, 1.0, 1.5])
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=9)
+                        ax.grid(True, linestyle=':', linewidth=0.5, color='gray')
+                        ax.set_xlabel(f'{section} Right Profile', fontsize=10, fontweight='bold')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+            
+            # 齿向曲线
+            cols2 = st.columns(2)
+            
+            with cols2[0]:
+                if 'left' in helix_data and section in helix_data['left']:
+                    tooth_helix = helix_data['left'][section]
+                    if tooth_helix:
+                        best_d = list(tooth_helix.keys())[len(tooth_helix)//2]
+                        values = np.array(tooth_helix[best_d])
+                        
+                        fig, ax = plt.subplots(figsize=(4, 5))
+                        y_positions = np.linspace(ba, be, len(values))
+                        ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=1.0)
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        
+                        n = len(values)
+                        meas_length = be - ba
+                        idx_eval_start = int((b1 - ba) / meas_length * (n - 1))
+                        idx_eval_end = int((b2 - ba) / meas_length * (n - 1))
+                        
+                        ax.plot(1, y_positions[0], 'v', markersize=8, color='blue')
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=8, color='green')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=8, color='orange')
+                        ax.plot(1, y_positions[-1], '^', markersize=8, color='red')
+                        
+                        ax.set_ylim(ba - 1, be + 1)
+                        ax.set_yticks([ba, b1, b2, be])
+                        ax.set_yticklabels([f'{ba:.1f}', f'{b1:.1f}', f'{b2:.1f}', f'{be:.1f}'], fontsize=9)
+                        ax.set_xlim(0.3, 1.7)
+                        ax.set_xticks([0.5, 1.0, 1.5])
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=9)
+                        ax.grid(True, linestyle=':', linewidth=0.5, color='gray')
+                        ax.set_xlabel(f'{section} Left Helix', fontsize=10, fontweight='bold')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+            
+            with cols2[1]:
+                if 'right' in helix_data and section in helix_data['right']:
+                    tooth_helix = helix_data['right'][section]
+                    if tooth_helix:
+                        best_d = list(tooth_helix.keys())[len(tooth_helix)//2]
+                        values = np.array(tooth_helix[best_d])
+                        
+                        fig, ax = plt.subplots(figsize=(4, 5))
+                        y_positions = np.linspace(ba, be, len(values))
+                        ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=1.0)
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        
+                        n = len(values)
+                        meas_length = be - ba
+                        idx_eval_start = int((b1 - ba) / meas_length * (n - 1))
+                        idx_eval_end = int((b2 - ba) / meas_length * (n - 1))
+                        
+                        ax.plot(1, y_positions[0], 'v', markersize=8, color='blue')
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=8, color='green')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=8, color='orange')
+                        ax.plot(1, y_positions[-1], '^', markersize=8, color='red')
+                        
+                        ax.set_ylim(ba - 1, be + 1)
+                        ax.set_yticks([ba, b1, b2, be])
+                        ax.set_yticklabels([f'{ba:.1f}', f'{b1:.1f}', f'{b2:.1f}', f'{be:.1f}'], fontsize=9)
+                        ax.set_xlim(0.3, 1.7)
+                        ax.set_xticks([0.5, 1.0, 1.5])
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=9)
+                        ax.grid(True, linestyle=':', linewidth=0.5, color='gray')
+                        ax.set_xlabel(f'{section} Right Helix', fontsize=10, fontweight='bold')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+            
+            st.markdown("---")
+    
     # 清理临时文件
     if os.path.exists(temp_path):
         os.remove(temp_path)
@@ -1912,6 +2145,7 @@ else:
     | 📈 单齿分析 | 单个齿的齿形/齿向偏差曲线 |
     | 📉 合并曲线 | 0-360°合并曲线、高阶波纹度评价、前5齿放大 |
     | 📊 频谱分析 | 阶次振幅相位分析（全部齿形/齿向） |
+    | 🔍 三截面扭曲数据 | 齿号1a/1b/1c的齿形/齿向偏差报表 |
     """)
 
 st.markdown("---")
