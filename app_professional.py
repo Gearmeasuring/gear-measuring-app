@@ -251,51 +251,131 @@ if uploaded_file is not None:
             st.table(header_data2)
         
         st.markdown("---")
-        st.markdown("#### 齿形分析预览 (左齿面)")
+        st.markdown("### Gear Profile/Lead Charts")
         
         profile_data = analyzer.reader.profile_data
-        if gear_params:
-            teeth_left = [1, 6, 12, 17] if gear_params.teeth_count >= 17 else list(range(1, min(5, gear_params.teeth_count) + 1))
-        else:
-            teeth_left = [1, 2, 3, 4]
+        helix_data = analyzer.reader.helix_data
         
-        cols = st.columns(min(4, len(teeth_left)))
+        # 获取测量的齿号
+        measured_teeth_profile = set()
+        measured_teeth_helix = set()
+        for side in ['left', 'right']:
+            if side in profile_data:
+                measured_teeth_profile.update(profile_data[side].keys())
+            if side in helix_data:
+                measured_teeth_helix.update(helix_data[side].keys())
         
-        for i, tooth_id in enumerate(teeth_left[:len(cols)]):
-            with cols[i]:
-                if tooth_id in profile_data.get('left', {}):
-                    tooth_profiles = profile_data['left'][tooth_id]
-                    helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
-                    best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
-                    values = tooth_profiles[best_z]
-                    
-                    fig, ax = plt.subplots(figsize=(4, 5))
-                    x_positions = np.linspace(0, 8, len(values))
-                    n_points = len(values)
-                    idx_start = int(n_points * 0.1)
-                    idx_end = int(n_points * 0.9)
-                    
-                    eval_data = values[idx_start:idx_end + 1]
-                    eval_x = x_positions[idx_start:idx_end + 1]
-                    
-                    if len(eval_data) > 1:
-                        x = np.arange(len(eval_data))
-                        slope, intercept = np.polyfit(x, eval_data, 1)
-                        trend = slope * x + intercept
+        # 选择要显示的齿（最多6个，类似PDF）
+        display_teeth = sorted(list(measured_teeth_profile))[:6]
+        if not display_teeth and gear_params:
+            display_teeth = list(range(1, min(7, gear_params.teeth_count + 1)))
+        
+        # 左齿形图表
+        st.markdown("#### Left Flank - Profile")
+        if display_teeth:
+            cols = st.columns(min(6, len(display_teeth)))
+            for i, tooth_id in enumerate(display_teeth[:len(cols)]):
+                with cols[i]:
+                    if tooth_id in profile_data.get('left', {}):
+                        tooth_profiles = profile_data['left'][tooth_id]
+                        helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
+                        best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
+                        values = tooth_profiles[best_z]
                         
-                        ax.plot(eval_data, eval_x, 'k-', linewidth=1.0, label='实际轮廓')
-                        ax.plot(trend, eval_x, 'r--', linewidth=1.0, label='评定线')
-                    
-                    ax.grid(True, linestyle='-', alpha=1.0, color='black', linewidth=0.5)
-                    ax.set_xlabel('Deviation (μm)', fontsize=8)
-                    ax.set_ylabel('Evaluation Length (mm)', fontsize=8)
-                    ax.set_title(f'Tooth {tooth_id}', fontsize=10, fontweight='bold')
-                    ax.tick_params(axis='both', which='major', labelsize=7)
-                    
-                    plt.tight_layout()
-                    st.pyplot(fig)
-                else:
-                    st.warning(f"Tooth {tooth_id} has no data")
+                        fig, ax = plt.subplots(figsize=(3, 6))
+                        x_positions = np.linspace(0, 8, len(values))
+                        
+                        # 绘制曲线（类似PDF样式）
+                        ax.plot(values, x_positions, 'b-', linewidth=1.0, label='Profile')
+                        
+                        # 添加网格
+                        ax.grid(True, linestyle='-', alpha=0.3, color='gray')
+                        ax.set_xlabel('Deviation (μm)', fontsize=7)
+                        ax.set_ylabel('Length (mm)', fontsize=7)
+                        ax.set_title(f'{tooth_id}', fontsize=9, fontweight='bold')
+                        ax.tick_params(axis='both', which='major', labelsize=6)
+                        
+                        plt.tight_layout()
+                        st.pyplot(fig)
+        
+        # 右齿形图表
+        st.markdown("#### Right Flank - Profile")
+        if display_teeth:
+            cols = st.columns(min(6, len(display_teeth)))
+            for i, tooth_id in enumerate(display_teeth[:len(cols)]):
+                with cols[i]:
+                    if tooth_id in profile_data.get('right', {}):
+                        tooth_profiles = profile_data['right'][tooth_id]
+                        helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
+                        best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
+                        values = tooth_profiles[best_z]
+                        
+                        fig, ax = plt.subplots(figsize=(3, 6))
+                        x_positions = np.linspace(0, 8, len(values))
+                        
+                        ax.plot(values, x_positions, 'b-', linewidth=1.0, label='Profile')
+                        ax.grid(True, linestyle='-', alpha=0.3, color='gray')
+                        ax.set_xlabel('Deviation (μm)', fontsize=7)
+                        ax.set_ylabel('Length (mm)', fontsize=7)
+                        ax.set_title(f'{tooth_id}', fontsize=9, fontweight='bold')
+                        ax.tick_params(axis='both', which='major', labelsize=6)
+                        
+                        plt.tight_layout()
+                        st.pyplot(fig)
+        
+        # 左齿向图表
+        st.markdown("#### Left Flank - Lead")
+        if display_teeth:
+            cols = st.columns(min(6, len(display_teeth)))
+            for i, tooth_id in enumerate(display_teeth[:len(cols)]):
+                with cols[i]:
+                    if tooth_id in helix_data.get('left', {}):
+                        tooth_helix = helix_data['left'][tooth_id]
+                        profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
+                        best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
+                        values = tooth_helix[best_d]
+                        
+                        fig, ax = plt.subplots(figsize=(3, 6))
+                        # 从 b1 和 b2 计算齿宽
+                        face_width = abs(b2 - b1) if b1 is not None and b2 is not None else 78
+                        x_positions = np.linspace(0, face_width, len(values))
+                        
+                        ax.plot(values, x_positions, 'b-', linewidth=1.0, label='Lead')
+                        ax.grid(True, linestyle='-', alpha=0.3, color='gray')
+                        ax.set_xlabel('Deviation (μm)', fontsize=7)
+                        ax.set_ylabel('Face Width (mm)', fontsize=7)
+                        ax.set_title(f'{tooth_id}', fontsize=9, fontweight='bold')
+                        ax.tick_params(axis='both', which='major', labelsize=6)
+                        
+                        plt.tight_layout()
+                        st.pyplot(fig)
+        
+        # 右齿向图表
+        st.markdown("#### Right Flank - Lead")
+        if display_teeth:
+            cols = st.columns(min(6, len(display_teeth)))
+            for i, tooth_id in enumerate(display_teeth[:len(cols)]):
+                with cols[i]:
+                    if tooth_id in helix_data.get('right', {}):
+                        tooth_helix = helix_data['right'][tooth_id]
+                        profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
+                        best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
+                        values = tooth_helix[best_d]
+                        
+                        fig, ax = plt.subplots(figsize=(3, 6))
+                        # 从 b1 和 b2 计算齿宽
+                        face_width = abs(b2 - b1) if b1 is not None and b2 is not None else 78
+                        x_positions = np.linspace(0, face_width, len(values))
+                        
+                        ax.plot(values, x_positions, 'b-', linewidth=1.0, label='Lead')
+                        ax.grid(True, linestyle='-', alpha=0.3, color='gray')
+                        ax.set_xlabel('Deviation (μm)', fontsize=7)
+                        ax.set_ylabel('Face Width (mm)', fontsize=7)
+                        ax.set_title(f'{tooth_id}', fontsize=9, fontweight='bold')
+                        ax.tick_params(axis='both', which='major', labelsize=6)
+                        
+                        plt.tight_layout()
+                        st.pyplot(fig)
             
     elif page == '📊 周节详细报表':
         st.markdown("## Gear Spacing Report - 周节详细报表")
