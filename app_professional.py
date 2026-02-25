@@ -277,84 +277,98 @@ if uploaded_file is not None:
         # 获取所有测量齿号并排序
         all_measured_teeth = sorted(list(measured_teeth_profile.union(measured_teeth_helix)))
         
-        # 辅助函数：计算偏差参数
+        # 辅助函数：计算偏差参数（与PDF报告完全一致）
         def calc_profile_deviations(values, x_positions):
-            """计算齿形偏差参数"""
+            """计算齿形偏差参数 - 与PDF报告算法一致"""
             if len(values) < 10:
                 return None
             
-            n = len(values)
-            # 评价范围（10% 到 90%）
-            idx_start = int(n * 0.1)
-            idx_end = int(n * 0.9)
-            eval_values = values[idx_start:idx_end+1]
-            eval_x = x_positions[idx_start:idx_end+1]
+            data = np.array(values)
+            n = len(data)
+            # 评价范围（15% 到 85%）- 与PDF报告一致
+            idx_start = int(n * 0.15)
+            idx_end = int(n * 0.85)
+            eval_values = data[idx_start:idx_end]
             
             if len(eval_values) < 2:
                 return None
             
+            # 总偏差 F_alpha（峰峰值）
+            f_a = np.max(eval_values) - np.min(eval_values)
+            
             # 拟合直线（最小二乘法）
             x = np.arange(len(eval_values))
-            slope, intercept = np.polyfit(x, eval_values, 1)
-            trend = slope * x + intercept
+            coeffs = np.polyfit(x, eval_values, 1)
+            trend = coeffs[0] * x + coeffs[1]
             
-            # fHαm - 齿形倾斜偏差（总趋势）
-            fHa = (trend[-1] - trend[0])
+            # fHα - 齿形倾斜偏差（趋势线的差值）
+            fHa = trend[-1] - trend[0]
             
-            # ffα - 齿形形状偏差（去除趋势后的峰谷差）
+            # ffα - 齿形形状偏差（去除趋势后的残余分量峰峰值）
             residual = eval_values - trend
             ff_a = np.max(residual) - np.min(residual)
             
-            # fα - 齿形总偏差
-            f_a = np.max(eval_values) - np.min(eval_values)
-            
-            # Ca - 鼓形量（简化计算）
-            mid_idx = len(eval_values) // 2
-            Ca = (eval_values[0] + eval_values[-1]) / 2 - eval_values[mid_idx]
+            # Ca - 鼓形量（抛物线拟合）
+            if len(eval_values) >= 3:
+                x2 = np.arange(len(eval_values))
+                coeffs2 = np.polyfit(x2, eval_values, 2)
+                a = coeffs2[0]
+                L = len(eval_values)
+                Ca = -a * (L ** 2) / 4
+            else:
+                Ca = 0.0
             
             return {
-                'fHαm': fHa,
+                'fHα': fHa,
                 'ffα': ff_a,
-                'fα': f_a,
+                'Fα': f_a,
                 'Ca': Ca
             }
         
         def calc_helix_deviations(values, x_positions):
-            """计算齿向偏差参数"""
+            """计算齿向偏差参数 - 与PDF报告算法一致"""
             if len(values) < 10:
                 return None
             
-            n = len(values)
-            idx_start = int(n * 0.1)
-            idx_end = int(n * 0.9)
-            eval_values = values[idx_start:idx_end+1]
-            eval_x = x_positions[idx_start:idx_end+1]
+            data = np.array(values)
+            n = len(data)
+            # 评价范围（15% 到 85%）- 与PDF报告一致
+            idx_start = int(n * 0.15)
+            idx_end = int(n * 0.85)
+            eval_values = data[idx_start:idx_end]
             
             if len(eval_values) < 2:
                 return None
             
+            # 总偏差 F_beta（峰峰值）
+            f_b = np.max(eval_values) - np.min(eval_values)
+            
+            # 拟合直线（最小二乘法）
             x = np.arange(len(eval_values))
-            slope, intercept = np.polyfit(x, eval_values, 1)
-            trend = slope * x + intercept
+            coeffs = np.polyfit(x, eval_values, 1)
+            trend = coeffs[0] * x + coeffs[1]
             
-            # fHβm - 齿向倾斜偏差
-            fHb = (trend[-1] - trend[0])
+            # fHβ - 齿向倾斜偏差（趋势线的差值）
+            fHb = trend[-1] - trend[0]
             
-            # ffβ - 齿向形状偏差
+            # ffβ - 齿向形状偏差（去除趋势后的残余分量峰峰值）
             residual = eval_values - trend
             ff_b = np.max(residual) - np.min(residual)
             
-            # fβ - 齿向总偏差
-            f_b = np.max(eval_values) - np.min(eval_values)
-            
-            # Cb - 鼓形量
-            mid_idx = len(eval_values) // 2
-            Cb = (eval_values[0] + eval_values[-1]) / 2 - eval_values[mid_idx]
+            # Cb - 鼓形量（抛物线拟合）
+            if len(eval_values) >= 3:
+                x2 = np.arange(len(eval_values))
+                coeffs2 = np.polyfit(x2, eval_values, 2)
+                a = coeffs2[0]
+                L = len(eval_values)
+                Cb = -a * (L ** 2) / 4
+            else:
+                Cb = 0.0
             
             return {
-                'fHβm': fHb,
+                'fHβ': fHb,
                 'ffβ': ff_b,
-                'fβ': f_b,
+                'Fβ': f_b,
                 'Cb': Cb
             }
         
@@ -419,10 +433,10 @@ if uploaded_file is not None:
                     df_left = pd.DataFrame(left_profile_results)
                     # 添加平均值行
                     mean_row = {'Tooth': 'Mean'}
-                    for col in ['fHαm', 'ffα', 'fα', 'Ca']:
+                    for col in ['fHα', 'ffα', 'Fα', 'Ca']:
                         mean_row[col] = df_left[col].mean()
                     df_left = pd.concat([df_left, pd.DataFrame([mean_row])], ignore_index=True)
-                    st.table(df_left.style.format({col: '{:.1f}' for col in ['fHαm', 'ffα', 'fα', 'Ca']}))
+                    st.table(df_left.style.format({col: '{:.1f}' for col in ['fHα', 'ffα', 'Fα', 'Ca']}))
             
             # 右齿面曲线图
             if profile_teeth_right:
@@ -471,10 +485,10 @@ if uploaded_file is not None:
                 if right_profile_results:
                     df_right = pd.DataFrame(right_profile_results)
                     mean_row = {'Tooth': 'Mean'}
-                    for col in ['fHαm', 'ffα', 'fα', 'Ca']:
+                    for col in ['fHα', 'ffα', 'Fα', 'Ca']:
                         mean_row[col] = df_right[col].mean()
                     df_right = pd.concat([df_right, pd.DataFrame([mean_row])], ignore_index=True)
-                    st.table(df_right.style.format({col: '{:.1f}' for col in ['fHαm', 'ffα', 'fα', 'Ca']}))
+                    st.table(df_right.style.format({col: '{:.1f}' for col in ['fHα', 'ffα', 'Fα', 'Ca']}))
         
         # ========== Helix 齿向分析 ==========
         st.markdown("#### Helix")
@@ -532,10 +546,10 @@ if uploaded_file is not None:
                 if left_helix_results:
                     df_left_h = pd.DataFrame(left_helix_results)
                     mean_row = {'Tooth': 'Mean'}
-                    for col in ['fHβm', 'ffβ', 'fβ', 'Cb']:
+                    for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']:
                         mean_row[col] = df_left_h[col].mean()
                     df_left_h = pd.concat([df_left_h, pd.DataFrame([mean_row])], ignore_index=True)
-                    st.table(df_left_h.style.format({col: '{:.1f}' for col in ['fHβm', 'ffβ', 'fβ', 'Cb']}))
+                    st.table(df_left_h.style.format({col: '{:.1f}' for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']}))
             
             # 右齿面曲线图
             if helix_teeth_right:
@@ -584,10 +598,10 @@ if uploaded_file is not None:
                 if right_helix_results:
                     df_right_h = pd.DataFrame(right_helix_results)
                     mean_row = {'Tooth': 'Mean'}
-                    for col in ['fHβm', 'ffβ', 'fβ', 'Cb']:
+                    for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']:
                         mean_row[col] = df_right_h[col].mean()
                     df_right_h = pd.concat([df_right_h, pd.DataFrame([mean_row])], ignore_index=True)
-                    st.table(df_right_h.style.format({col: '{:.1f}' for col in ['fHβm', 'ffβ', 'fβ', 'Cb']}))
+                    st.table(df_right_h.style.format({col: '{:.1f}' for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']}))
             
     elif page == '📊 周节详细报表':
         st.markdown("## Gear Spacing Report - 周节详细报表")
