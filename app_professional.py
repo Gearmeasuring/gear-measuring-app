@@ -393,7 +393,7 @@ if uploaded_file is not None:
                         best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
                         values = np.array(tooth_profiles[best_z])
                         
-                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
+                        fig, ax = plt.subplots(figsize=(2.0, 5.0))
                         y_positions = np.linspace(d1, d2, len(values))
                         
                         # 绘制曲线（红色）
@@ -410,23 +410,32 @@ if uploaded_file is not None:
                         idx_meas_end = n - 1  # 终测点
                         
                         # 起测点（蓝色三角形向下）
-                        ax.plot(1, y_positions[idx_meas_start], 'v', markersize=4, color='blue', markerfacecolor='blue')
+                        ax.plot(1, y_positions[idx_meas_start], 'v', markersize=5, color='blue', markerfacecolor='blue')
+                        ax.annotate('da', xy=(1.15, y_positions[idx_meas_start]), fontsize=5, color='blue')
                         # 起评点（绿色三角形向下）
-                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=4, color='green', markerfacecolor='green')
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=5, color='green', markerfacecolor='green')
+                        ax.annotate('d1', xy=(1.15, y_positions[idx_eval_start]), fontsize=5, color='green')
                         # 终评点（橙色三角形向上）
-                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=4, color='orange', markerfacecolor='orange')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=5, color='orange', markerfacecolor='orange')
+                        ax.annotate('d2', xy=(1.15, y_positions[idx_eval_end]), fontsize=5, color='orange')
                         # 终测点（红色三角形向上）
-                        ax.plot(1, y_positions[idx_meas_end], '^', markersize=4, color='red', markerfacecolor='red')
+                        ax.plot(1, y_positions[idx_meas_end], '^', markersize=5, color='red', markerfacecolor='red')
+                        ax.annotate('de', xy=(1.15, y_positions[idx_meas_end]), fontsize=5, color='red')
                         
-                        # 添加水平网格线
-                        ax.grid(True, axis='y', linestyle=':', linewidth=0.5, color='gray')
-                        # 添加垂直网格线
-                        ax.grid(True, axis='x', linestyle=':', linewidth=0.5, color='gray')
+                        # 设置Y轴刻度和网格
+                        ax.set_ylim(d1 - 1, d2 + 1)
+                        ax.set_yticks([d1, d2])
+                        ax.set_yticklabels([f'd1={d1:.1f}', f'd2={d2:.1f}'], fontsize=5)
                         
-                        ax.set_xlim(0.5, 1.5)
+                        # 设置X轴刻度和网格
+                        ax.set_xlim(0.3, 1.7)
+                        ax.set_xticks([0.5, 1.0, 1.5])
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=5)
+                        
+                        # 添加网格线
+                        ax.grid(True, linestyle=':', linewidth=0.5, color='gray')
+                        
                         ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
-                        ax.set_xticks([])
-                        ax.set_yticks([])
                         
                         plt.tight_layout()
                         st.pyplot(fig)
@@ -470,7 +479,7 @@ if uploaded_file is not None:
                         best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
                         values = np.array(tooth_profiles[best_z])
                         
-                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
+                        fig, ax = plt.subplots(figsize=(2.0, 5.0))
                         y_positions = np.linspace(d1, d2, len(values))
                         
                         # 绘制曲线（红色）
@@ -487,23 +496,32 @@ if uploaded_file is not None:
                         idx_meas_end = n - 1  # 终测点
                         
                         # 起测点（蓝色三角形向下）
-                        ax.plot(1, y_positions[idx_meas_start], 'v', markersize=4, color='blue', markerfacecolor='blue')
+                        ax.plot(1, y_positions[idx_meas_start], 'v', markersize=5, color='blue', markerfacecolor='blue')
+                        ax.annotate('da', xy=(1.15, y_positions[idx_meas_start]), fontsize=5, color='blue')
                         # 起评点（绿色三角形向下）
-                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=4, color='green', markerfacecolor='green')
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=5, color='green', markerfacecolor='green')
+                        ax.annotate('d1', xy=(1.15, y_positions[idx_eval_start]), fontsize=5, color='green')
                         # 终评点（橙色三角形向上）
-                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=4, color='orange', markerfacecolor='orange')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=5, color='orange', markerfacecolor='orange')
+                        ax.annotate('d2', xy=(1.15, y_positions[idx_eval_end]), fontsize=5, color='orange')
                         # 终测点（红色三角形向上）
-                        ax.plot(1, y_positions[idx_meas_end], '^', markersize=4, color='red', markerfacecolor='red')
+                        ax.plot(1, y_positions[idx_meas_end], '^', markersize=5, color='red', markerfacecolor='red')
+                        ax.annotate('de', xy=(1.15, y_positions[idx_meas_end]), fontsize=5, color='red')
                         
-                        # 添加水平网格线
-                        ax.grid(True, axis='y', linestyle=':', linewidth=0.5, color='gray')
-                        # 添加垂直网格线
-                        ax.grid(True, axis='x', linestyle=':', linewidth=0.5, color='gray')
+                        # 设置Y轴刻度和网格
+                        ax.set_ylim(d1 - 1, d2 + 1)
+                        ax.set_yticks([d1, d2])
+                        ax.set_yticklabels([f'd1={d1:.1f}', f'd2={d2:.1f}'], fontsize=5)
                         
-                        ax.set_xlim(0.5, 1.5)
+                        # 设置X轴刻度和网格
+                        ax.set_xlim(0.3, 1.7)
+                        ax.set_xticks([0.5, 1.0, 1.5])
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=5)
+                        
+                        # 添加网格线
+                        ax.grid(True, linestyle=':', linewidth=0.5, color='gray')
+                        
                         ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
-                        ax.set_xticks([])
-                        ax.set_yticks([])
                         
                         plt.tight_layout()
                         st.pyplot(fig)
@@ -553,7 +571,7 @@ if uploaded_file is not None:
                         best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
                         values = np.array(tooth_helix[best_d])
                         
-                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
+                        fig, ax = plt.subplots(figsize=(2.0, 5.0))
                         y_positions = np.linspace(b1, b2, len(values))
                         
                         # 绘制曲线（黑色）
@@ -570,23 +588,32 @@ if uploaded_file is not None:
                         idx_meas_end = n - 1  # 终测点
                         
                         # 起测点（蓝色三角形向下）
-                        ax.plot(1, y_positions[idx_meas_start], 'v', markersize=4, color='blue', markerfacecolor='blue')
+                        ax.plot(1, y_positions[idx_meas_start], 'v', markersize=5, color='blue', markerfacecolor='blue')
+                        ax.annotate('ba', xy=(1.15, y_positions[idx_meas_start]), fontsize=5, color='blue')
                         # 起评点（绿色三角形向下）
-                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=4, color='green', markerfacecolor='green')
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=5, color='green', markerfacecolor='green')
+                        ax.annotate('b1', xy=(1.15, y_positions[idx_eval_start]), fontsize=5, color='green')
                         # 终评点（橙色三角形向上）
-                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=4, color='orange', markerfacecolor='orange')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=5, color='orange', markerfacecolor='orange')
+                        ax.annotate('b2', xy=(1.15, y_positions[idx_eval_end]), fontsize=5, color='orange')
                         # 终测点（红色三角形向上）
-                        ax.plot(1, y_positions[idx_meas_end], '^', markersize=4, color='red', markerfacecolor='red')
+                        ax.plot(1, y_positions[idx_meas_end], '^', markersize=5, color='red', markerfacecolor='red')
+                        ax.annotate('be', xy=(1.15, y_positions[idx_meas_end]), fontsize=5, color='red')
                         
-                        # 添加水平网格线
-                        ax.grid(True, axis='y', linestyle=':', linewidth=0.5, color='gray')
-                        # 添加垂直网格线
-                        ax.grid(True, axis='x', linestyle=':', linewidth=0.5, color='gray')
+                        # 设置Y轴刻度和网格
+                        ax.set_ylim(b1 - 1, b2 + 1)
+                        ax.set_yticks([b1, b2])
+                        ax.set_yticklabels([f'b1={b1:.1f}', f'b2={b2:.1f}'], fontsize=5)
                         
-                        ax.set_xlim(0.5, 1.5)
+                        # 设置X轴刻度和网格
+                        ax.set_xlim(0.3, 1.7)
+                        ax.set_xticks([0.5, 1.0, 1.5])
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=5)
+                        
+                        # 添加网格线
+                        ax.grid(True, linestyle=':', linewidth=0.5, color='gray')
+                        
                         ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
-                        ax.set_xticks([])
-                        ax.set_yticks([])
                         
                         plt.tight_layout()
                         st.pyplot(fig)
@@ -628,7 +655,7 @@ if uploaded_file is not None:
                         best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
                         values = np.array(tooth_helix[best_d])
                         
-                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
+                        fig, ax = plt.subplots(figsize=(2.0, 5.0))
                         y_positions = np.linspace(b1, b2, len(values))
                         
                         # 绘制曲线（黑色）
@@ -645,23 +672,32 @@ if uploaded_file is not None:
                         idx_meas_end = n - 1  # 终测点
                         
                         # 起测点（蓝色三角形向下）
-                        ax.plot(1, y_positions[idx_meas_start], 'v', markersize=4, color='blue', markerfacecolor='blue')
+                        ax.plot(1, y_positions[idx_meas_start], 'v', markersize=5, color='blue', markerfacecolor='blue')
+                        ax.annotate('ba', xy=(1.15, y_positions[idx_meas_start]), fontsize=5, color='blue')
                         # 起评点（绿色三角形向下）
-                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=4, color='green', markerfacecolor='green')
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=5, color='green', markerfacecolor='green')
+                        ax.annotate('b1', xy=(1.15, y_positions[idx_eval_start]), fontsize=5, color='green')
                         # 终评点（橙色三角形向上）
-                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=4, color='orange', markerfacecolor='orange')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=5, color='orange', markerfacecolor='orange')
+                        ax.annotate('b2', xy=(1.15, y_positions[idx_eval_end]), fontsize=5, color='orange')
                         # 终测点（红色三角形向上）
-                        ax.plot(1, y_positions[idx_meas_end], '^', markersize=4, color='red', markerfacecolor='red')
+                        ax.plot(1, y_positions[idx_meas_end], '^', markersize=5, color='red', markerfacecolor='red')
+                        ax.annotate('be', xy=(1.15, y_positions[idx_meas_end]), fontsize=5, color='red')
                         
-                        # 添加水平网格线
-                        ax.grid(True, axis='y', linestyle=':', linewidth=0.5, color='gray')
-                        # 添加垂直网格线
-                        ax.grid(True, axis='x', linestyle=':', linewidth=0.5, color='gray')
+                        # 设置Y轴刻度和网格
+                        ax.set_ylim(b1 - 1, b2 + 1)
+                        ax.set_yticks([b1, b2])
+                        ax.set_yticklabels([f'b1={b1:.1f}', f'b2={b2:.1f}'], fontsize=5)
                         
-                        ax.set_xlim(0.5, 1.5)
+                        # 设置X轴刻度和网格
+                        ax.set_xlim(0.3, 1.7)
+                        ax.set_xticks([0.5, 1.0, 1.5])
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=5)
+                        
+                        # 添加网格线
+                        ax.grid(True, linestyle=':', linewidth=0.5, color='gray')
+                        
                         ax.set_xlabel(f'{tooth_id}', fontsize=7, fontweight='bold')
-                        ax.set_xticks([])
-                        ax.set_yticks([])
                         
                         plt.tight_layout()
                         st.pyplot(fig)
