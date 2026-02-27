@@ -2339,6 +2339,144 @@ if uploaded_file is not None:
 
                 st.pyplot(fig)
                 plt.close(fig)
+                
+                # ========== AI智能分析 ==========
+                st.markdown("---")
+                st.markdown("#### 🤖 AI智能分析")
+                
+                # 分析频谱数据
+                def analyze_spectrum_ai(components, ze, tolerance_func, R, N0, K):
+                    """AI分析频谱数据，返回状态、原因和建议"""
+                    
+                    # 统计信息
+                    high_order_components = [c for c in components if c.order >= ze]
+                    low_order_components = [c for c in components if c.order < ze]
+                    
+                    # 计算超出公差的数量
+                    out_of_tolerance = []
+                    for comp in components[:20]:
+                        tol = tolerance_func([comp.order], R, N0, K)[0]
+                        if comp.amplitude > tol:
+                            out_of_tolerance.append(comp)
+                    
+                    # ZE及其倍数的幅值
+                    ze_multiples_amp = {}
+                    for i in range(1, 5):
+                        ze_mult = ze * i
+                        for comp in components:
+                            if abs(comp.order - ze_mult) < 1:
+                                ze_multiples_amp[i] = comp.amplitude
+                                break
+                    
+                    # 分析结果
+                    analysis = {
+                        'status': 'normal',
+                        'status_text': '正常',
+                        'status_color': 'green',
+                        'issues': [],
+                        'causes': [],
+                        'recommendations': []
+                    }
+                    
+                    # 判断状态
+                    if len(out_of_tolerance) > 5:
+                        analysis['status'] = 'critical'
+                        analysis['status_text'] = '严重异常'
+                        analysis['status_color'] = 'red'
+                    elif len(out_of_tolerance) > 2:
+                        analysis['status'] = 'warning'
+                        analysis['status_text'] = '警告'
+                        analysis['status_color'] = 'orange'
+                    elif len(out_of_tolerance) > 0:
+                        analysis['status'] = 'attention'
+                        analysis['status_text'] = '需关注'
+                        analysis['status_color'] = 'yellow'
+                    
+                    # 分析问题
+                    if ze_multiples_amp.get(1, 0) > 0.1:
+                        analysis['issues'].append(f"主导阶次ZE={ze}幅值较高({ze_multiples_amp.get(1, 0):.4f}μm)")
+                        analysis['causes'].append("可能是齿轮加工时的分度误差或刀具误差导致")
+                        analysis['recommendations'].append("检查齿轮加工机床的分度精度，检查刀具磨损情况")
+                    
+                    if ze_multiples_amp.get(2, 0) > 0.05:
+                        analysis['issues'].append(f"2倍频(2ZE={2*ze})幅值较高")
+                        analysis['causes'].append("可能是齿轮的椭圆度或偏心导致")
+                        analysis['recommendations'].append("检查齿轮安装偏心量，检查齿轮内孔精度")
+                    
+                    # 高阶次分析
+                    high_order_large = [c for c in high_order_components[:10] if c.amplitude > 0.03]
+                    if len(high_order_large) > 3:
+                        analysis['issues'].append(f"高阶次({len(high_order_large)}个)幅值较大")
+                        analysis['causes'].append("可能是齿面粗糙度较大或存在微观几何误差")
+                        analysis['recommendations'].append("优化磨齿或珩齿工艺，降低齿面粗糙度")
+                    
+                    # 低阶次分析
+                    low_order_large = [c for c in low_order_components[:5] if c.amplitude > 0.05]
+                    if len(low_order_large) > 2:
+                        analysis['issues'].append(f"低阶次({len(low_order_large)}个)幅值较大")
+                        analysis['causes'].append("可能是齿轮的宏观几何误差，如齿形误差、齿向误差")
+                        analysis['recommendations'].append("检查齿轮的齿形和齿向偏差，优化加工工艺")
+                    
+                    # 连续多阶次异常
+                    consecutive_issues = []
+                    for i in range(len(components) - 2):
+                        if components[i].amplitude > 0.02 and components[i+1].amplitude > 0.02 and components[i+2].amplitude > 0.02:
+                            consecutive_issues.append((components[i].order, components[i+2].order))
+                    
+                    if consecutive_issues:
+                        analysis['issues'].append(f"连续多阶次({len(consecutive_issues)}处)出现异常")
+                        analysis['causes'].append("可能是系统性的加工误差或周期性误差")
+                        analysis['recommendations'].append("检查加工机床的周期性误差，检查工件装夹稳定性")
+                    
+                    # 如果没有发现问题
+                    if not analysis['issues']:
+                        analysis['issues'].append("未发现明显异常")
+                        analysis['causes'].append("齿轮波纹度在正常范围内")
+                        analysis['recommendations'].append("继续保持当前加工工艺，定期监测")
+                    
+                    return analysis
+                
+                # 执行AI分析
+                ai_analysis = analyze_spectrum_ai(
+                    sorted_components, ze, calculate_tolerance_curve, R, N0, K
+                )
+                
+                # 显示分析结果
+                status_color = ai_analysis['status_color']
+                status_text = ai_analysis['status_text']
+                
+                st.markdown(f"**齿轮状态: <span style='color:{status_color};font-size:20px;font-weight:bold;'>{status_text}</span>**", unsafe_allow_html=True)
+                
+                # 问题列表
+                if ai_analysis['issues']:
+                    st.markdown("**📋 发现问题:**")
+                    for issue in ai_analysis['issues']:
+                        st.markdown(f"- {issue}")
+                
+                # 原因分析
+                if ai_analysis['causes']:
+                    st.markdown("**🔍 原因分析:**")
+                    for cause in ai_analysis['causes']:
+                        st.markdown(f"- {cause}")
+                
+                # 改进建议
+                if ai_analysis['recommendations']:
+                    st.markdown("**💡 改进建议:**")
+                    for rec in ai_analysis['recommendations']:
+                        st.markdown(f"- {rec}")
+                
+                # 详细数据摘要
+                with st.expander("📊 详细数据摘要", expanded=False):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("总谐波数", len(sorted_components))
+                        st.metric("高阶谐波数", len([c for c in sorted_components if c.order >= ze]))
+                    with col2:
+                        st.metric("最大幅值", f"{max(amplitudes):.4f} μm")
+                        st.metric("超差数量", len([c for c in sorted_components[:20] if c.amplitude > calculate_tolerance_curve([c.order], R, N0, K)[0]]))
+                    with col3:
+                        st.metric("主导阶次幅值", f"{next((c.amplitude for c in sorted_components if abs(c.order - ze) < 1), 0):.4f} μm")
+                        st.metric("2倍频幅值", f"{next((c.amplitude for c in sorted_components if abs(c.order - 2*ze) < 1), 0):.4f} μm")
     
     elif page == '🔍 三截面扭曲数据':
         st.markdown("## 三截面扭曲数据报告")
