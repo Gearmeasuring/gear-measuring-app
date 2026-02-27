@@ -2001,16 +2001,6 @@ if uploaded_file is not None:
         # ========== PDF报表生成按钮 ==========
         st.markdown("### 📄 生成频谱分析报表")
         
-        # 极限曲线参数设置（全局）
-        st.markdown("**Limit Curve Parameters (应用于所有报表)**")
-        col_p1, col_p2, col_p3 = st.columns(3)
-        with col_p1:
-            pdf_R = st.number_input("R (mm)", min_value=0.0001, max_value=10.0, value=0.0039, step=0.0001, format="%.4f", key="pdf_R")
-        with col_p2:
-            pdf_N0 = st.number_input("N₀", min_value=0.0, max_value=5.0, value=0.6, step=0.1, format="%.1f", key="pdf_N0")
-        with col_p3:
-            pdf_K = st.number_input("K", min_value=0.0, max_value=10.0, value=2.8, step=0.1, format="%.1f", key="pdf_K")
-        
         if st.button("📥 生成频谱分析PDF报表", type="primary"):
             with st.spinner("正在生成PDF报表..."):
                 try:
@@ -2023,6 +2013,13 @@ if uploaded_file is not None:
                     from reportlab.pdfbase.ttfonts import TTFont
                     import io
                     
+                    # 注册中文字体
+                    try:
+                        pdfmetrics.registerFont(TTFont('SimHei', 'simhei.ttf'))
+                        chinese_font = 'SimHei'
+                    except:
+                        chinese_font = 'Helvetica'
+                    
                     # 创建PDF
                     pdf_buffer = io.BytesIO()
                     doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, 
@@ -2032,15 +2029,13 @@ if uploaded_file is not None:
                     elements = []
                     styles = getSampleStyleSheet()
                     
-                    # 标题
-                    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16, alignment=1)
-                    elements.append(Paragraph("Spectrum Analysis Report", title_style))
-                    elements.append(Spacer(1, 5*mm))
+                    # 中文样式
+                    title_style = ParagraphStyle('ChineseTitle', fontName=chinese_font, fontSize=16, alignment=1, spaceAfter=10)
+                    heading_style = ParagraphStyle('ChineseHeading', fontName=chinese_font, fontSize=12, spaceAfter=6)
+                    normal_style = ParagraphStyle('ChineseNormal', fontName=chinese_font, fontSize=10)
                     
-                    # 极限曲线参数
-                    param_text = f"Limit Curve Parameters: R = {pdf_R:.4f} mm, N₀ = {pdf_N0:.1f}, K = {pdf_K:.1f}"
-                    elements.append(Paragraph(param_text, styles['Normal']))
-                    elements.append(Paragraph("Formula: Tolerance = R / (O-1)^(N₀+K/O)", styles['Normal']))
+                    # 标题
+                    elements.append(Paragraph("频谱分析报表", title_style))
                     elements.append(Spacer(1, 5*mm))
                     
                     # 计算极限曲线函数
@@ -2062,8 +2057,34 @@ if uploaded_file is not None:
                         
                         display_name = name_mapping.get(name, name)
                         
+                        # 获取界面实际参数
+                        R_key = f"R_{name}"
+                        N0_key = f"N0_{name}"
+                        K_key = f"K_{name}"
+                        
+                        # 从session_state获取参数，如果没有则使用默认值
+                        if R_key in st.session_state:
+                            current_R = st.session_state[R_key]
+                        else:
+                            current_R = 0.0039
+                        
+                        if N0_key in st.session_state:
+                            current_N0 = st.session_state[N0_key]
+                        else:
+                            current_N0 = 0.6
+                        
+                        if K_key in st.session_state:
+                            current_K = st.session_state[K_key]
+                        else:
+                            current_K = 2.8
+                        
                         # 小标题
-                        elements.append(Paragraph(f"<b>{display_name}</b>", styles['Heading2']))
+                        elements.append(Paragraph(f"<b>{display_name}</b>", heading_style))
+                        
+                        # 极限曲线参数
+                        param_text = f"极限曲线参数: R = {current_R:.4f} mm, N₀ = {current_N0:.1f}, K = {current_K:.1f}"
+                        elements.append(Paragraph(param_text, normal_style))
+                        elements.append(Paragraph("公式: 公差 = R / (O-1)^(N₀+K/O)", normal_style))
                         elements.append(Spacer(1, 3*mm))
                         
                         # 生成频谱图
@@ -2075,7 +2096,7 @@ if uploaded_file is not None:
                             # 创建图表
                             fig, ax = plt.subplots(figsize=(7, 3.5))
                             
-                            tolerance_values = calc_tolerance(orders, pdf_R, pdf_N0, pdf_K)
+                            tolerance_values = calc_tolerance(orders, current_R, current_N0, current_K)
                             colors_bar = ['red' if amp > tol else 'steelblue' for amp, tol in zip(amplitudes, tolerance_values)]
                             ax.bar(orders, amplitudes, color=colors_bar, alpha=0.7, width=3, label='Amplitude')
                             
@@ -2087,7 +2108,7 @@ if uploaded_file is not None:
                                     ax.axvline(x=ze_mult, color='orange', linestyle=':', linewidth=1.5, alpha=0.7)
                             
                             order_range = np.linspace(2, max(orders) + 20, 200)
-                            tolerance_curve = calc_tolerance(order_range, pdf_R, pdf_N0, pdf_K)
+                            tolerance_curve = calc_tolerance(order_range, current_R, current_N0, current_K)
                             ax.plot(order_range, tolerance_curve, color='darkorange', linewidth=2.5, label='Tolerance Limit')
                             
                             max_amplitude = max(amplitudes) if amplitudes else 1
@@ -2115,12 +2136,12 @@ if uploaded_file is not None:
                             elements.append(Spacer(1, 3*mm))
                         
                         # 数据表
-                        table_data = [['Rank', 'Order', 'Amplitude (μm)', 'Phase (°)', 'Type', 'Status']]
+                        table_data = [['排名', '阶次', '幅值 (μm)', '相位 (°)', '类型', '状态']]
                         for i, comp in enumerate(result.spectrum_components[:10]):
-                            order_type = 'High' if comp.order >= ze else 'Low'
+                            order_type = '高阶' if comp.order >= ze else '低阶'
                             # 计算状态
-                            tol = calc_tolerance([comp.order], pdf_R, pdf_N0, pdf_K)[0]
-                            status = 'FAIL' if comp.amplitude > tol else 'PASS'
+                            tol = calc_tolerance([comp.order], current_R, current_N0, current_K)[0]
+                            status = '不合格' if comp.amplitude > tol else '合格'
                             table_data.append([
                                 str(i + 1),
                                 str(int(comp.order)),
@@ -2135,13 +2156,12 @@ if uploaded_file is not None:
                             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                            ('FONTNAME', (0, 0), (-1, -1), chinese_font),
                             ('FONTSIZE', (0, 0), (-1, 0), 9),
                             ('FONTSIZE', (0, 1), (-1, -1), 8),
                             ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
                             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
                             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                            ('TEXTCOLOR', (5, 1), (5, -1), colors.red),  # Status列
                         ]))
                         elements.append(table)
                         elements.append(Spacer(1, 5*mm))
@@ -2158,7 +2178,7 @@ if uploaded_file is not None:
                     st.download_button(
                         label="📥 下载频谱分析PDF报表",
                         data=pdf_buffer,
-                        file_name=f"spectrum_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        file_name=f"频谱分析报表_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                         mime="application/pdf"
                     )
                     
