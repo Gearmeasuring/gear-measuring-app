@@ -124,7 +124,7 @@ with st.sidebar:
     st.header("📋 功能导航")
     page = st.radio(
         "选择功能",
-        ['📄 专业报告', '🔍 三截面扭曲数据', '📊 周节详细报表', '📈 单齿分析', '📉 合并曲线', '📊 频谱分析'],
+        ['📄 专业报告', '🔍 三截面扭曲数据', '📊 周节详细报表', '📈 单齿分析', '📉 合并曲线', '📊 频谱分析', '🤖 AI综合分析报告'],
         index=0
     )
     
@@ -3297,8 +3297,358 @@ if uploaded_file is not None:
     if os.path.exists(temp_path):
         os.remove(temp_path)
 
+    elif page == '🤖 AI综合分析报告':
+        st.markdown("## 🤖 AI综合分析报告")
+        
+        # 计算频谱分析结果
+        with st.spinner("正在计算频谱分析..."):
+            results = {
+                'profile_left': analyzer.analyze_profile('left', verbose=False),
+                'profile_right': analyzer.analyze_profile('right', verbose=False),
+                'helix_left': analyzer.analyze_helix('left', verbose=False),
+                'helix_right': analyzer.analyze_helix('right', verbose=False)
+            }
+        
+        name_mapping = {
+            'profile_left': 'Left Profile',
+            'profile_right': 'Right Profile',
+            'helix_left': 'Left Lead',
+            'helix_right': 'Right Lead'
+        }
+        
+        # 收集所有分析数据
+        def generate_comprehensive_analysis():
+            """生成综合分析报告"""
+            report = {
+                'overall_score': 0,
+                'status': '正常',
+                'status_color': 'green',
+                'profile_analysis': {},
+                'helix_analysis': {},
+                'pitch_analysis': {},
+                'spectrum_analysis': {},
+                'issues': [],
+                'causes': [],
+                'recommendations': [],
+                'noise_prediction': '低',
+                'quality_grade': 'Q6'
+            }
+            
+            scores = []
+            
+            # 1. 齿形偏差分析
+            profile_score = 100
+            profile_issues = []
+            if profile_eval:
+                for side in ['left', 'right']:
+                    side_data = profile_data.get(side, {})
+                    if side_data:
+                        deviations = []
+                        for tooth_id, tooth_profiles in side_data.items():
+                                helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
+                                best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
+                                values = np.array(tooth_profiles[best_z])
+                                F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
+                                if F_a is not None:
+                                    deviations.append({'Fα': F_a, 'fHα': fH_a, 'ffα': ff_a})
+                        
+                        if deviations:
+                            avg_Fa = np.mean([d['Fα'] for d in deviations])
+                            avg_fHa = np.mean([d['fHα'] for d in deviations])
+                            avg_ffa = np.mean([d['ffα'] for d in deviations])
+                            
+                            report['profile_analysis'][side] = {
+                                'avg_Fα': avg_Fa,
+                                'avg_fHα': avg_fHa,
+                                'avg_ffα': avg_ffa
+                            }
+                            
+                            if avg_Fa > 15:
+                                profile_score -= 20
+                                profile_issues.append(f"{'左' if side == 'left' else '右'}齿面齿形总偏差Fα过大({avg_Fa:.2f}μm)")
+                            elif avg_Fa > 10:
+                                profile_score -= 10
+                                profile_issues.append(f"{'左' if side == 'left' else '右'}齿面齿形总偏差Fα偏大({avg_Fa:.2f}μm)")
+                            
+                            if avg_fHa > 8:
+                                profile_score -= 10
+                                profile_issues.append(f"{'左' if side == 'left' else '右'}齿面齿形倾斜偏差fHα过大")
+            
+            scores.append(profile_score)
+            report['profile_analysis']['score'] = profile_score
+            report['profile_analysis']['issues'] = profile_issues
+            
+            # 2. 齿向偏差分析
+            helix_score = 100
+            helix_issues = []
+            if helix_eval:
+                for side in ['left', 'right']:
+                    side_data = helix_data.get(side, {})
+                    if side_data:
+                        deviations = []
+                        for tooth_id, tooth_helix in side_data.items():
+                            profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
+                            best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
+                            values = np.array(tooth_helix[best_d])
+                            F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
+                            if F_b is not None:
+                                deviations.append({'Fβ': F_b, 'fHβ': fH_b, 'ffβ': ff_b})
+                        
+                        if deviations:
+                            avg_Fb = np.mean([d['Fβ'] for d in deviations])
+                            avg_fHb = np.mean([d['fHβ'] for d in deviations])
+                            avg_ffb = np.mean([d['ffβ'] for d in deviations])
+                            
+                            report['helix_analysis'][side] = {
+                                'avg_Fβ': avg_Fb,
+                                'avg_fHβ': avg_fHb,
+                                'avg_ffβ': avg_ffb
+                            }
+                            
+                            if avg_Fb > 15:
+                                helix_score -= 20
+                                helix_issues.append(f"{'左' if side == 'left' else '右'}齿面齿向总偏差Fβ过大({avg_Fb:.2f}μm)")
+                            elif avg_Fb > 10:
+                                helix_score -= 10
+                                helix_issues.append(f"{'左' if side == 'left' else '右'}齿面齿向总偏差Fβ偏大({avg_Fb:.2f}μm)")
+            
+            scores.append(helix_score)
+            report['helix_analysis']['score'] = helix_score
+            report['helix_analysis']['issues'] = helix_issues
+            
+            # 3. 周节偏差分析
+            pitch_score = 100
+            pitch_issues = []
+            if pitch_left:
+                if pitch_left.fp_max > 10:
+                    pitch_score -= 15
+                    pitch_issues.append(f"左齿面单个齿距偏差fp过大({pitch_left.fp_max:.2f}μm)")
+                if pitch_left.Fp_max > 30:
+                    pitch_score -= 15
+                    pitch_issues.append(f"左齿面齿距累积偏差Fp过大({pitch_left.Fp_max:.2f}μm)")
+                if pitch_left.Fr > 20:
+                    pitch_score -= 10
+                    pitch_issues.append(f"左齿面径向跳动Fr过大({pitch_left.Fr:.2f}μm)")
+                
+                report['pitch_analysis']['left'] = {
+                    'fp_max': pitch_left.fp_max,
+                    'Fp_max': pitch_left.Fp_max,
+                    'Fr': pitch_left.Fr
+                }
+            
+            if pitch_right:
+                if pitch_right.fp_max > 10:
+                    pitch_score -= 15
+                    pitch_issues.append(f"右齿面单个齿距偏差fp过大({pitch_right.fp_max:.2f}μm)")
+                if pitch_right.Fp_max > 30:
+                    pitch_score -= 15
+                    pitch_issues.append(f"右齿面齿距累积偏差Fp过大({pitch_right.Fp_max:.2f}μm)")
+                if pitch_right.Fr > 20:
+                    pitch_score -= 10
+                    pitch_issues.append(f"右齿面径向跳动Fr过大({pitch_right.Fr:.2f}μm)")
+                
+                report['pitch_analysis']['right'] = {
+                    'fp_max': pitch_right.fp_max,
+                    'Fp_max': pitch_right.Fp_max,
+                    'Fr': pitch_right.Fr
+                }
+            
+            scores.append(pitch_score)
+            report['pitch_analysis']['score'] = pitch_score
+            report['pitch_analysis']['issues'] = pitch_issues
+            
+            # 4. 频谱分析
+            spectrum_score = 100
+            spectrum_issues = []
+            ze = gear_params.teeth_count if gear_params else 87
+            
+            for name in ['profile_left', 'profile_right', 'helix_left', 'helix_right']:
+                if name in results and results[name]:
+                    result = results[name]
+                    sorted_components = sorted(result.spectrum_components[:10], key=lambda c: c.order)
+                    
+                    for comp in sorted_components:
+                        if abs(comp.order - ze) < 1:
+                            if comp.amplitude > 0.1:
+                                spectrum_score -= 10
+                                spectrum_issues.append(f"{name_mapping.get(name, name)}主导阶次ZE幅值过高({comp.amplitude:.4f}μm)")
+                            break
+            
+            scores.append(spectrum_score)
+            report['spectrum_analysis']['score'] = spectrum_score
+            report['spectrum_analysis']['issues'] = spectrum_issues
+            
+            # 计算综合评分
+            overall_score = np.mean(scores) if scores else 100
+            report['overall_score'] = overall_score
+            
+            # 确定状态
+            if overall_score >= 90:
+                report['status'] = '优秀'
+                report['status_color'] = 'green'
+                report['noise_prediction'] = '很低'
+                report['quality_grade'] = 'Q5'
+            elif overall_score >= 80:
+                report['status'] = '良好'
+                report['status_color'] = 'lightgreen'
+                report['noise_prediction'] = '低'
+                report['quality_grade'] = 'Q6'
+            elif overall_score >= 70:
+                report['status'] = '合格'
+                report['status_color'] = 'yellow'
+                report['noise_prediction'] = '中等'
+                report['quality_grade'] = 'Q7'
+            elif overall_score >= 60:
+                report['status'] = '需关注'
+                report['status_color'] = 'orange'
+                report['noise_prediction'] = '高'
+                report['quality_grade'] = 'Q8'
+            else:
+                report['status'] = '不合格'
+                report['status_color'] = 'red'
+                report['noise_prediction'] = '很高'
+                report['quality_grade'] = 'Q9+'
+            
+            # 汇总问题
+            all_issues = profile_issues + helix_issues + pitch_issues + spectrum_issues
+            report['issues'] = all_issues
+            
+            # 生成原因分析
+            if any('Fα' in issue for issue in all_issues):
+                report['causes'].append("齿形误差可能由刀具磨损、机床分度误差或加工参数不当引起")
+            if any('Fβ' in issue for issue in all_issues):
+                report['causes'].append("齿向误差可能由机床导轨误差、工件装夹变形或热变形引起")
+            if any('fp' in issue for issue in all_issues):
+                report['causes'].append("齿距误差可能由分度机构误差、刀具误差或工件偏心引起")
+            if any('Fr' in issue for issue in all_issues):
+                report['causes'].append("径向跳动可能由工件安装偏心、轴承间隙或主轴跳动引起")
+            if any('ZE' in issue for issue in all_issues):
+                report['causes'].append("主导阶次幅值高可能由分度误差、刀具误差或齿轮偏心引起")
+            
+            if not report['causes']:
+                report['causes'].append("齿轮各项指标正常，加工质量良好")
+            
+            # 生成改进建议
+            if overall_score < 80:
+                report['recommendations'].append("建议全面检查加工机床精度和刀具状态")
+            if any('Fα' in issue for issue in all_issues):
+                report['recommendations'].append("优化齿形加工：检查刀具磨损，调整加工参数")
+            if any('Fβ' in issue for issue in all_issues):
+                report['recommendations'].append("优化齿向加工：检查机床导轨，改善装夹方式")
+            if any('fp' in issue or 'Fp' in issue for issue in all_issues):
+                report['recommendations'].append("优化齿距精度：检查分度机构，校准刀具")
+            if any('Fr' in issue for issue in all_issues):
+                report['recommendations'].append("降低径向跳动：改善工件装夹,检查主轴精度")
+            
+            if not report['recommendations']:
+                report['recommendations'].append("继续保持当前加工工艺，定期监测质量")
+            
+            return report
+        
+        # 生成报告
+        comprehensive_report = generate_comprehensive_analysis()
+        
+        # 显示综合评分
+        st.markdown("### 📊 综合评估")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("综合评分", f"{comprehensive_report['overall_score']:.0f}分")
+        with col2:
+            status_color = comprehensive_report['status_color']
+            st.markdown(f"**状态: <span style='color:{status_color};font-size:20px;font-weight:bold;'>{comprehensive_report['status']}</span>**", unsafe_allow_html=True)
+        with col3:
+            st.metric("质量等级", comprehensive_report['quality_grade'])
+        with col4:
+            noise_color = 'green' if comprehensive_report['noise_prediction'] in ['很低', '低'] else 'orange' if comprehensive_report['noise_prediction'] == '中等' else 'red'
+            st.markdown(f"**噪声预测: <span style='color:{noise_color};'>{comprehensive_report['noise_prediction']}</span>**", unsafe_allow_html=True)
+        
+        # 分项评分
+        st.markdown("### 📈 分项评分")
+        score_cols = st.columns(4)
+        with score_cols[0]:
+            profile_score = comprehensive_report['profile_analysis'].get('score', 100)
+            st.metric("齿形偏差", f"{profile_score:.0f}分")
+            st.progress(profile_score / 100)
+        with score_cols[1]:
+            helix_score = comprehensive_report['helix_analysis'].get('score', 100)
+            st.metric("齿向偏差", f"{helix_score:.0f}分")
+            st.progress(helix_score / 100)
+        with score_cols[2]:
+            pitch_score = comprehensive_report['pitch_analysis'].get('score', 100)
+            st.metric("周节偏差", f"{pitch_score:.0f}分")
+            st.progress(pitch_score / 100)
+        with score_cols[3]:
+            spectrum_score = comprehensive_report['spectrum_analysis'].get('score', 100)
+            st.metric("频谱分析", f"{spectrum_score:.0f}分")
+            st.progress(spectrum_score / 100)
+        
+        # 问题汇总
+        st.markdown("### 📋 问题汇总")
+        if comprehensive_report['issues']:
+            for issue in comprehensive_report['issues']:
+                st.markdown(f"- 🔴 {issue}")
+        else:
+            st.markdown("- ✅ 未发现明显问题")
+        
+        # 原因分析
+        st.markdown("### 🔍 原因分析")
+        for cause in comprehensive_report['causes']:
+            st.markdown(f"- {cause}")
+        
+        # 改进建议
+        st.markdown("### 💡 改进建议")
+        for rec in comprehensive_report['recommendations']:
+            st.markdown(f"- {rec}")
+        
+        # 详细数据
+        with st.expander("📊 详细分析数据", expanded=False):
+            # 齿形数据
+            if comprehensive_report['profile_analysis']:
+                st.markdown("**齿形偏差数据:**")
+                profile_df_data = []
+                for side, data in comprehensive_report['profile_analysis'].items():
+                    if isinstance(data, dict) and 'avg_Fα' in data:
+                        profile_df_data.append({
+                            '齿面': '左齿面' if side == 'left' else '右齿面',
+                            'Fα (μm)': f"{data['avg_Fα']:.2f}",
+                            'fHα (μm)': f"{data['avg_fHα']:.2f}",
+                            'ffα (μm)': f"{data['avg_ffα']:.2f}"
+                        })
+                if profile_df_data:
+                    st.dataframe(pd.DataFrame(profile_df_data), use_container_width=True, hide_index=True)
+            
+            # 齿向数据
+            if comprehensive_report['helix_analysis']:
+                st.markdown("**齿向偏差数据:**")
+                helix_df_data = []
+                for side, data in comprehensive_report['helix_analysis'].items():
+                    if isinstance(data, dict) and 'avg_Fβ' in data:
+                        helix_df_data.append({
+                            '齿面': '左齿面' if side == 'left' else '右齿面',
+                            'Fβ (μm)': f"{data['avg_Fβ']:.2f}",
+                            'fHβ (μm)': f"{data['avg_fHβ']:.2f}",
+                            'ffβ (μm)': f"{data['avg_ffβ']:.2f}"
+                        })
+                if helix_df_data:
+                    st.dataframe(pd.DataFrame(helix_df_data), use_container_width=True, hide_index=True)
+            
+            # 周节数据
+            if comprehensive_report['pitch_analysis']:
+                st.markdown("**周节偏差数据:**")
+                pitch_df_data = []
+                for side, data in comprehensive_report['pitch_analysis'].items():
+                    if isinstance(data, dict) and 'fp_max' in data:
+                        pitch_df_data.append({
+                            '齿面': '左齿面' if side == 'left' else '右齿面',
+                            'fp max (μm)': f"{data['fp_max']:.2f}",
+                            'Fp max (μm)': f"{data['Fp_max']:.2f}",
+                            'Fr (μm)': f"{data['Fr']:.2f}"
+                        })
+                if pitch_df_data:
+                    st.dataframe(pd.DataFrame(pitch_df_data), use_container_width=True, hide_index=True)
+
 else:
-    st.info("👆 请在左侧上传 MKA 文件开始分析")
+    st.info("👆 请在左侧上传 MTK 文件开始分析")
     
     st.markdown("""
     ### 📋 功能说明
