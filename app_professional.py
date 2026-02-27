@@ -3478,13 +3478,13 @@ if uploaded_file is not None:
             overall_score = np.mean(scores) if scores else 100
             report['overall_score'] = overall_score
             
-            # 确定状态
-            if overall_score >= 90:
+            # 确定状态（与频谱分析AI保持一致）
+            if overall_score >= 95:
                 report['status'] = '优秀'
                 report['status_color'] = 'green'
                 report['noise_prediction'] = '很低'
                 report['quality_grade'] = 'Q5'
-            elif overall_score >= 80:
+            elif overall_score >= 85:
                 report['status'] = '良好'
                 report['status_color'] = 'lightgreen'
                 report['noise_prediction'] = '低'
@@ -3494,7 +3494,7 @@ if uploaded_file is not None:
                 report['status_color'] = 'yellow'
                 report['noise_prediction'] = '中等'
                 report['quality_grade'] = 'Q7'
-            elif overall_score >= 60:
+            elif overall_score >= 50:
                 report['status'] = '需关注'
                 report['status_color'] = 'orange'
                 report['noise_prediction'] = '高'
