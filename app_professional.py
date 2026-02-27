@@ -2011,24 +2011,26 @@ if uploaded_file is not None:
                     N0_auto = 0.6
                     K_auto = 2.8
                     
-                    # 找到ZE附近的幅值（ZE ± 5范围内的最大幅值）
-                    ze_range = 5
-                    ze_amplitudes = [amp for o, amp in zip(orders, amplitudes) if abs(o - ze) <= ze_range]
+                    # 找到ZE处的幅值或最接近ZE的幅值
+                    # 首先尝试找到精确匹配ZE的阶次
+                    ze_amplitude = None
+                    for o, amp in zip(orders, amplitudes):
+                        if abs(o - ze) < 1:  # ZE ± 1范围内
+                            if ze_amplitude is None or amp > ze_amplitude:
+                                ze_amplitude = amp
                     
-                    if ze_amplitudes:
-                        max_amp_at_ze = max(ze_amplitudes)
-                        # 计算R，使得在ZE处的公差为ZE处最大幅值的1.3倍
+                    if ze_amplitude is not None:
+                        # 计算R，使得在ZE处的公差为ZE处幅值的1.5倍
                         # tolerance = R / ((ZE-1)^N), 其中 N = N0 + K/ZE
                         N_at_ze = N0_auto + K_auto / ze
-                        R_auto = max_amp_at_ze * 1.3 * ((ze - 1) ** N_at_ze)
+                        R_auto = ze_amplitude * 1.5 * ((ze - 1) ** N_at_ze)
                     else:
-                        # 如果没有ZE附近的数据，使用全局最大幅值
+                        # 如果没有ZE附近的数据，使用全局最大幅值，并乘以更大系数
                         max_amp = max(amplitudes)
-                        O_ref = max(sum(orders) / len(orders), 2)
-                        N_ref = N0_auto + K_auto / O_ref
-                        R_auto = max_amp * 1.2 * ((O_ref - 1) ** N_ref)
+                        R_auto = max_amp * 2.0 * ((ze - 1) ** (N0_auto + K_auto / ze))
                     
-                    R_auto = max(0.0001, min(R_auto, 1.0))
+                    # 放宽R的上限限制
+                    R_auto = max(0.0001, min(R_auto, 10.0))
                 else:
                     R_auto = 0.0039
                     N0_auto = 0.6
@@ -2039,7 +2041,7 @@ if uploaded_file is not None:
                 st.markdown("*Formula: Tolerance = R / (O-1)^(N₀+K/O)*")
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    R_input = st.number_input("R (mm)", min_value=0.0001, max_value=1.0, value=float(R_auto), step=0.0001, format="%.4f", key=f"R_{name}")
+                    R_input = st.number_input("R (mm)", min_value=0.0001, max_value=10.0, value=float(R_auto), step=0.0001, format="%.4f", key=f"R_{name}")
                 with col2:
                     N0_input = st.number_input("N₀", min_value=0.0, max_value=5.0, value=float(N0_auto), step=0.1, format="%.1f", key=f"N0_{name}")
                 with col3:
