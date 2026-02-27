@@ -2014,21 +2014,31 @@ if uploaded_file is not None:
                     import io
                     import os
                     
+                    # 获取当前脚本所在目录
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    
                     # 注册中文字体
                     chinese_font = 'Helvetica'
                     font_paths = [
-                        'fonts/NotoSansSC-Regular.otf',  # 项目字体目录
+                        os.path.join(script_dir, 'fonts', 'NotoSansSC-Regular.otf'),  # 项目字体目录
                         '/usr/share/fonts/truetype/noto/NotoSansSC-Regular.otf',  # Linux系统字体
+                        '/app/fonts/NotoSansSC-Regular.otf',  # Streamlit Cloud路径
                         'simhei.ttf',  # Windows黑体
                     ]
+                    
+                    font_loaded = False
                     for font_path in font_paths:
                         if os.path.exists(font_path):
                             try:
                                 pdfmetrics.registerFont(TTFont('ChineseFont', font_path))
                                 chinese_font = 'ChineseFont'
+                                font_loaded = True
                                 break
-                            except:
+                            except Exception as e:
                                 continue
+                    
+                    if not font_loaded:
+                        st.warning("中文字体加载失败，PDF将使用英文字体显示")
                     
                     # 创建PDF
                     pdf_buffer = io.BytesIO()
