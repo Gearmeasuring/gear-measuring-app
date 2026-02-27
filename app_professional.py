@@ -92,131 +92,252 @@ st.set_page_config(
 # ========== 自定义CSS样式 ==========
 st.markdown("""
 <style>
+    /* 导入Google字体 */
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+    
+    /* 全局样式 */
+    * {
+        font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
     /* 主色调 */
     :root {
-        --primary-color: #1f77b4;
-        --secondary-color: #ff7f0e;
-        --success-color: #2ca02c;
-        --warning-color: #ffbb33;
-        --danger-color: #d62728;
-        --info-color: #17a2b8;
+        --primary-color: #2563eb;
+        --primary-dark: #1d4ed8;
+        --primary-light: #3b82f6;
+        --secondary-color: #f59e0b;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+        --info-color: #06b6d4;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --gray-900: #111827;
+    }
+    
+    /* 主容器 */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 1400px;
     }
     
     /* 主标题样式 */
     .main-title {
-        font-size: 2.5rem;
+        font-size: 2.8rem;
         font-weight: 700;
-        color: #1f77b4;
         text-align: center;
-        padding: 1rem;
+        padding: 1.5rem;
         margin-bottom: 1rem;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
+        letter-spacing: 2px;
+    }
+    
+    .sub-title {
+        font-size: 1.2rem;
+        color: #6b7280;
+        text-align: center;
+        margin-bottom: 2rem;
+        font-weight: 400;
     }
     
     /* 卡片样式 */
     .card {
         background: #ffffff;
-        border-radius: 10px;
+        border-radius: 12px;
         padding: 1.5rem;
-        margin: 0.5rem 0;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e1e4e8;
+        margin: 0.75rem 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+    
+    .card:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        transform: translateY(-2px);
     }
     
     .card-header {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         font-weight: 600;
-        color: #1f77b4;
-        border-bottom: 2px solid #e1e4e8;
-        padding-bottom: 0.5rem;
+        color: #1f2937;
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 0.75rem;
         margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .card-header::before {
+        content: '';
+        width: 4px;
+        height: 20px;
+        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+        border-radius: 2px;
+        margin-right: 10px;
     }
     
     /* 指标卡片 */
     .metric-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        border-radius: 10px;
-        padding: 1rem;
+        border-radius: 12px;
+        padding: 1.25rem;
         text-align: center;
         margin: 0.25rem;
+        box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
     }
     
     .metric-value {
-        font-size: 2rem;
+        font-size: 2.2rem;
         font-weight: 700;
+        line-height: 1.2;
     }
     
     .metric-label {
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         opacity: 0.9;
+        margin-top: 0.25rem;
     }
     
     /* 状态标签 */
     .status-excellent {
-        background-color: #28a745;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         color: white;
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
+        padding: 0.35rem 1rem;
+        border-radius: 50px;
         font-weight: 600;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
     }
     
     .status-good {
-        background-color: #5cb85c;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         color: white;
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
+        padding: 0.35rem 1rem;
+        border-radius: 50px;
         font-weight: 600;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
     }
     
     .status-warning {
-        background-color: #ffc107;
-        color: #333;
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        padding: 0.35rem 1rem;
+        border-radius: 50px;
         font-weight: 600;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
     }
     
     .status-danger {
-        background-color: #dc3545;
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         color: white;
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
+        padding: 0.35rem 1rem;
+        border-radius: 50px;
         font-weight: 600;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
     }
     
     /* 数据表格样式 */
-    .dataframe {
+    .stDataFrame {
         border: none !important;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
     
-    .dataframe th {
-        background-color: #1f77b4 !important;
+    .stDataFrame table {
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+    }
+    
+    .stDataFrame th {
+        background: linear-gradient(135deg, #1f77b4 0%, #2563eb 100%) !important;
         color: white !important;
         font-weight: 600 !important;
-        padding: 0.75rem !important;
+        padding: 0.875rem 1rem !important;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
     }
     
-    .dataframe td {
-        padding: 0.5rem !important;
-        border-bottom: 1px solid #e1e4e8 !important;
+    .stDataFrame td {
+        padding: 0.75rem 1rem !important;
+        border-bottom: 1px solid #e5e7eb !important;
+        font-size: 0.9rem;
     }
     
-    .dataframe tr:hover {
-        background-color: #f8f9fa !important;
+    .stDataFrame tr:nth-child(even) {
+        background-color: #f9fafb !important;
+    }
+    
+    .stDataFrame tr:hover {
+        background-color: #f3f4f6 !important;
     }
     
     /* 侧边栏样式 */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+        background: linear-gradient(180deg, #1f2937 0%, #111827 100%) !important;
     }
     
-    section[data-testid="stSidebar"] .stRadio > label {
-        font-weight: 600;
-        color: #495057;
+    section[data-testid="stSidebar"] .stMarkdown,
+    section[data-testid="stSidebar"] .stRadio > label,
+    section[data-testid="stSidebar"] label {
+        color: #d1d5db !important;
+    }
+    
+    section[data-testid="stSidebar"] .stRadio > div {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 0.5rem;
+    }
+    
+    section[data-testid="stSidebar"] .stRadio > div > label {
+        background: transparent;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0.25rem 0;
+        transition: all 0.2s ease;
+    }
+    
+    section[data-testid="stSidebar"] .stRadio > div > label:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    section[data-testid="stSidebar"] .stRadio > div > label[data-checked="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white !important;
+    }
+    
+    section[data-testid="stSidebar"] .stSuccess {
+        background: rgba(16, 185, 129, 0.2);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 8px;
+    }
+    
+    section[data-testid="stSidebar"] .stButton > button {
+        background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+        border: 1px solid #4b5563;
+        color: white;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    
+    section[data-testid="stSidebar"] .stButton > button:hover {
+        background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+        border-color: #6b7280;
     }
     
     /* 按钮样式 */
@@ -224,75 +345,203 @@ st.markdown("""
         border-radius: 8px;
         font-weight: 600;
         transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
     
     .stButton > button:hover {
-        transform: translateY(-2px);
+        transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
     
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
     /* 进度条样式 */
-    .stProgress > div > div {
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
         border-radius: 10px;
+    }
+    
+    .stProgress > div > div {
+        background: #e5e7eb;
+        border-radius: 10px;
+        height: 8px;
     }
     
     /* 问题列表样式 */
     .issue-critical {
-        border-left: 4px solid #dc3545;
-        background-color: #fff5f5;
-        padding: 0.5rem 1rem;
-        margin: 0.25rem 0;
+        border-left: 4px solid #ef4444;
+        background: linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%);
+        padding: 0.75rem 1rem;
+        margin: 0.5rem 0;
         border-radius: 0 8px 8px 0;
     }
     
     .issue-warning {
-        border-left: 4px solid #ffc107;
-        background-color: #fffbeb;
-        padding: 0.5rem 1rem;
-        margin: 0.25rem 0;
+        border-left: 4px solid #f59e0b;
+        background: linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 100%);
+        padding: 0.75rem 1rem;
+        margin: 0.5rem 0;
         border-radius: 0 8px 8px 0;
     }
     
     .issue-info {
-        border-left: 4px solid #17a2b8;
-        background-color: #e8f4f8;
-        padding: 0.5rem 1rem;
-        margin: 0.25rem 0;
+        border-left: 4px solid #06b6d4;
+        background: linear-gradient(90deg, rgba(6, 182, 212, 0.1) 0%, transparent 100%);
+        padding: 0.75rem 1rem;
+        margin: 0.5rem 0;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .issue-success {
+        border-left: 4px solid #10b981;
+        background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%);
+        padding: 0.75rem 1rem;
+        margin: 0.5rem 0;
         border-radius: 0 8px 8px 0;
     }
     
     /* 图表容器 */
     .chart-container {
         background: white;
-        border-radius: 10px;
+        border-radius: 12px;
         padding: 1rem;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        margin: 0.5rem 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin: 0.75rem 0;
+        border: 1px solid #e5e7eb;
     }
     
     /* 分隔线 */
     hr {
         border: none;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, #1f77b4, transparent);
-        margin: 1.5rem 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #d1d5db, transparent);
+        margin: 2rem 0;
     }
     
     /* 标题装饰 */
+    h1 {
+        font-weight: 700;
+        color: #111827;
+    }
+    
     h2 {
-        border-left: 4px solid #1f77b4;
+        border-left: 4px solid #667eea;
         padding-left: 1rem;
+        font-weight: 600;
+        color: #1f2937;
     }
     
     h3 {
-        border-left: 3px solid #ff7f0e;
+        border-left: 3px solid #764ba2;
         padding-left: 0.75rem;
+        font-weight: 600;
+        color: #374151;
+    }
+    
+    h4 {
+        font-weight: 600;
+        color: #4b5563;
+    }
+    
+    /* Expander样式 */
+    .streamlit-expanderHeader {
+        background: #f9fafb;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        font-weight: 500;
     }
     
     /* 隐藏Streamlit默认元素 */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    
+    /* 滚动条样式 */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(180deg, #5a67d8 0%, #6b46c1 100%);
+    }
+    
+    /* 动画效果 */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .card, .stDataFrame, .chart-container {
+        animation: fadeIn 0.5s ease-out;
+    }
+    
+    /* 工具提示 */
+    .tooltip {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .tooltip .tooltiptext {
+        visibility: hidden;
+        background-color: #1f2937;
+        color: #fff;
+        text-align: center;
+        padding: 0.5rem;
+        border-radius: 6px;
+        position: absolute;
+        z-index: 1;
+        font-size: 0.8rem;
+        white-space: nowrap;
+    }
+    
+    .tooltip:hover .tooltiptext {
+        visibility: visible;
+    }
+    
+    /* 徽章 */
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 50px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .badge-primary {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+    
+    .badge-success {
+        background: #d1fae5;
+        color: #059669;
+    }
+    
+    .badge-warning {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    
+    .badge-danger {
+        background: #fee2e2;
+        color: #dc2626;
+    }
 </style>
 """, unsafe_allow_html=True)
 
