@@ -3293,10 +3293,6 @@ if uploaded_file is not None:
                     'fHβ_R': '{:.2f}', 'ffβ_R': '{:.2f}', 'Fβ_R': '{:.2f}', 'Cb_R': '{:.2f}'
                 }), use_container_width=True, hide_index=True)
     
-    # 清理临时文件
-    if os.path.exists(temp_path):
-        os.remove(temp_path)
-
     elif page == '🤖 AI综合分析报告':
         st.markdown("## 🤖 AI综合分析报告")
         
@@ -3646,6 +3642,10 @@ if uploaded_file is not None:
                         })
                 if pitch_df_data:
                     st.dataframe(pd.DataFrame(pitch_df_data), use_container_width=True, hide_index=True)
+    
+    # 清理临时文件
+    if os.path.exists(temp_path):
+        os.remove(temp_path)
 
 else:
     st.info("👆 请在左侧上传 MTK 文件开始分析")
@@ -3663,6 +3663,7 @@ else:
     | 📈 单齿分析 | 单个齿的齿形/齿向偏差曲线 |
     | 📉 合并曲线 | 0-360°合并曲线、高阶波纹度评价、前5齿放大 |
     | 📊 频谱分析 | 阶次振幅相位分析（全部齿形/齿向） |
+    | 🤖 AI综合分析报告 | 综合评估齿轮质量，提供问题分析和改进建议 |
     """)
 
 st.markdown("---")
