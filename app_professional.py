@@ -2012,13 +2012,23 @@ if uploaded_file is not None:
                     from reportlab.pdfbase import pdfmetrics
                     from reportlab.pdfbase.ttfonts import TTFont
                     import io
+                    import os
                     
                     # 注册中文字体
-                    try:
-                        pdfmetrics.registerFont(TTFont('SimHei', 'simhei.ttf'))
-                        chinese_font = 'SimHei'
-                    except:
-                        chinese_font = 'Helvetica'
+                    chinese_font = 'Helvetica'
+                    font_paths = [
+                        'fonts/NotoSansSC-Regular.otf',  # 项目字体目录
+                        '/usr/share/fonts/truetype/noto/NotoSansSC-Regular.otf',  # Linux系统字体
+                        'simhei.ttf',  # Windows黑体
+                    ]
+                    for font_path in font_paths:
+                        if os.path.exists(font_path):
+                            try:
+                                pdfmetrics.registerFont(TTFont('ChineseFont', font_path))
+                                chinese_font = 'ChineseFont'
+                                break
+                            except:
+                                continue
                     
                     # 创建PDF
                     pdf_buffer = io.BytesIO()
