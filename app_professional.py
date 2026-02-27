@@ -2014,56 +2014,6 @@ if uploaded_file is not None:
                     import io
                     import os
                     
-                    # 获取当前脚本所在目录
-                    script_dir = os.path.dirname(os.path.abspath(__file__))
-                    
-                    # 注册中文字体
-                    chinese_font = 'Helvetica'
-                    font_paths = [
-                        os.path.join(script_dir, 'fonts', 'wqy-microhei.ttc'),  # 项目字体目录 - 文泉驿微米黑
-                        os.path.join(script_dir, 'fonts', 'NotoSansSC-Regular.otf'),  # 项目字体目录
-                        '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',  # 系统文泉驿微米黑
-                        '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',  # 文泉驿正黑
-                        '/usr/share/fonts/truetype/noto/NotoSansSC-Regular.otf',  # Linux系统字体
-                        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',  # Noto CJK字体
-                        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',  # DejaVu
-                        'simhei.ttf',  # Windows黑体
-                    ]
-                    
-                    font_loaded = False
-                    font_error = ""
-                    for font_path in font_paths:
-                        if os.path.exists(font_path):
-                            try:
-                                pdfmetrics.registerFont(TTFont('ChineseFont', font_path))
-                                chinese_font = 'ChineseFont'
-                                font_loaded = True
-                                break
-                            except Exception as e:
-                                font_error = str(e)
-                                continue
-                    
-                    if not font_loaded:
-                        st.warning(f"中文字体加载失败，PDF将使用英文字体显示。错误: {font_error}")
-                    
-                    # 创建PDF
-                    pdf_buffer = io.BytesIO()
-                    doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, 
-                                           leftMargin=15*mm, rightMargin=15*mm,
-                                           topMargin=15*mm, bottomMargin=15*mm)
-                    
-                    elements = []
-                    styles = getSampleStyleSheet()
-                    
-                    # 中文样式
-                    title_style = ParagraphStyle('ChineseTitle', fontName=chinese_font, fontSize=16, alignment=1, spaceAfter=10)
-                    heading_style = ParagraphStyle('ChineseHeading', fontName=chinese_font, fontSize=12, spaceAfter=6)
-                    normal_style = ParagraphStyle('ChineseNormal', fontName=chinese_font, fontSize=10)
-                    
-                    # 标题
-                    elements.append(Paragraph("频谱分析报表", title_style))
-                    elements.append(Spacer(1, 5*mm))
-                    
                     # 计算极限曲线函数
                     def calc_tolerance(orders, R, N0, K):
                         tolerances = []
@@ -2075,6 +2025,24 @@ if uploaded_file is not None:
                                 tolerance = R / ((O - 1) ** N)
                                 tolerances.append(tolerance)
                         return tolerances
+                    
+                    # 创建PDF
+                    pdf_buffer = io.BytesIO()
+                    doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, 
+                                           leftMargin=15*mm, rightMargin=15*mm,
+                                           topMargin=15*mm, bottomMargin=15*mm)
+                    
+                    elements = []
+                    styles = getSampleStyleSheet()
+                    
+                    # 使用英文字体（避免中文显示问题）
+                    title_style = ParagraphStyle('Title', fontName='Helvetica-Bold', fontSize=16, alignment=1, spaceAfter=10)
+                    heading_style = ParagraphStyle('Heading', fontName='Helvetica-Bold', fontSize=12, spaceAfter=6)
+                    normal_style = ParagraphStyle('Normal', fontName='Helvetica', fontSize=10)
+                    
+                    # 标题
+                    elements.append(Paragraph("Spectrum Analysis Report", title_style))
+                    elements.append(Spacer(1, 5*mm))
                     
                     # 为每个分析结果生成报表
                     for name, result in results.items():
@@ -2107,10 +2075,10 @@ if uploaded_file is not None:
                         # 小标题
                         elements.append(Paragraph(f"<b>{display_name}</b>", heading_style))
                         
-                        # 极限曲线参数
-                        param_text = f"极限曲线参数: R = {current_R:.4f} mm, N₀ = {current_N0:.1f}, K = {current_K:.1f}"
+                        # 极限曲线参数（英文）
+                        param_text = f"Limit Curve: R = {current_R:.4f} mm, N0 = {current_N0:.1f}, K = {current_K:.1f}"
                         elements.append(Paragraph(param_text, normal_style))
-                        elements.append(Paragraph("公式: 公差 = R / (O-1)^(N₀+K/O)", normal_style))
+                        elements.append(Paragraph("Formula: Tolerance = R / (O-1)^(N0+K/O)", normal_style))
                         elements.append(Spacer(1, 3*mm))
                         
                         # 生成频谱图
@@ -2161,13 +2129,13 @@ if uploaded_file is not None:
                             elements.append(img)
                             elements.append(Spacer(1, 3*mm))
                         
-                        # 数据表
-                        table_data = [['排名', '阶次', '幅值 (μm)', '相位 (°)', '类型', '状态']]
+                        # 数据表（英文）
+                        table_data = [['Rank', 'Order', 'Amplitude (μm)', 'Phase (°)', 'Type', 'Status']]
                         for i, comp in enumerate(result.spectrum_components[:10]):
-                            order_type = '高阶' if comp.order >= ze else '低阶'
+                            order_type = 'High' if comp.order >= ze else 'Low'
                             # 计算状态
                             tol = calc_tolerance([comp.order], current_R, current_N0, current_K)[0]
-                            status = '不合格' if comp.amplitude > tol else '合格'
+                            status = 'FAIL' if comp.amplitude > tol else 'PASS'
                             table_data.append([
                                 str(i + 1),
                                 str(int(comp.order)),
@@ -2182,7 +2150,7 @@ if uploaded_file is not None:
                             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                            ('FONTNAME', (0, 0), (-1, -1), chinese_font),
+                            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
                             ('FONTSIZE', (0, 0), (-1, 0), 9),
                             ('FONTSIZE', (0, 1), (-1, -1), 8),
                             ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
@@ -2200,16 +2168,16 @@ if uploaded_file is not None:
                     doc.build(elements)
                     pdf_buffer.seek(0)
                     
-                    st.success("✅ PDF报表生成成功！")
+                    st.success("✅ PDF Report Generated Successfully!")
                     st.download_button(
-                        label="📥 下载频谱分析PDF报表",
+                        label="📥 Download Spectrum Analysis PDF Report",
                         data=pdf_buffer,
-                        file_name=f"频谱分析报表_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        file_name=f"spectrum_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                         mime="application/pdf"
                     )
                     
                 except Exception as e:
-                    st.error(f"生成PDF失败: {e}")
+                    st.error(f"PDF Generation Failed: {e}")
                     import traceback
                     st.error(traceback.format_exc())
         
