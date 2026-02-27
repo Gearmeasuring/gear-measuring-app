@@ -83,11 +83,218 @@ if not st.session_state.authenticated:
 
 # 用户已登录，显示主应用
 st.set_page_config(
-    page_title="Gear Measurement Report System - Professional",
+    page_title="齿轮测量分析系统 - 专业版",
     page_icon="⚙️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# ========== 自定义CSS样式 ==========
+st.markdown("""
+<style>
+    /* 主色调 */
+    :root {
+        --primary-color: #1f77b4;
+        --secondary-color: #ff7f0e;
+        --success-color: #2ca02c;
+        --warning-color: #ffbb33;
+        --danger-color: #d62728;
+        --info-color: #17a2b8;
+    }
+    
+    /* 主标题样式 */
+    .main-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #1f77b4;
+        text-align: center;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    /* 卡片样式 */
+    .card {
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin: 0.5rem 0;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e1e4e8;
+    }
+    
+    .card-header {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #1f77b4;
+        border-bottom: 2px solid #e1e4e8;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* 指标卡片 */
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+        margin: 0.25rem;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    
+    .metric-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    /* 状态标签 */
+    .status-excellent {
+        background-color: #28a745;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    
+    .status-good {
+        background-color: #5cb85c;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    
+    .status-warning {
+        background-color: #ffc107;
+        color: #333;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    
+    .status-danger {
+        background-color: #dc3545;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    
+    /* 数据表格样式 */
+    .dataframe {
+        border: none !important;
+    }
+    
+    .dataframe th {
+        background-color: #1f77b4 !important;
+        color: white !important;
+        font-weight: 600 !important;
+        padding: 0.75rem !important;
+    }
+    
+    .dataframe td {
+        padding: 0.5rem !important;
+        border-bottom: 1px solid #e1e4e8 !important;
+    }
+    
+    .dataframe tr:hover {
+        background-color: #f8f9fa !important;
+    }
+    
+    /* 侧边栏样式 */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    
+    section[data-testid="stSidebar"] .stRadio > label {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    /* 按钮样式 */
+    .stButton > button {
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    /* 进度条样式 */
+    .stProgress > div > div {
+        border-radius: 10px;
+    }
+    
+    /* 问题列表样式 */
+    .issue-critical {
+        border-left: 4px solid #dc3545;
+        background-color: #fff5f5;
+        padding: 0.5rem 1rem;
+        margin: 0.25rem 0;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .issue-warning {
+        border-left: 4px solid #ffc107;
+        background-color: #fffbeb;
+        padding: 0.5rem 1rem;
+        margin: 0.25rem 0;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .issue-info {
+        border-left: 4px solid #17a2b8;
+        background-color: #e8f4f8;
+        padding: 0.5rem 1rem;
+        margin: 0.25rem 0;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    /* 图表容器 */
+    .chart-container {
+        background: white;
+        border-radius: 10px;
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin: 0.5rem 0;
+    }
+    
+    /* 分隔线 */
+    hr {
+        border: none;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #1f77b4, transparent);
+        margin: 1.5rem 0;
+    }
+    
+    /* 标题装饰 */
+    h2 {
+        border-left: 4px solid #1f77b4;
+        padding-left: 1rem;
+    }
+    
+    h3 {
+        border-left: 3px solid #ff7f0e;
+        padding-left: 0.75rem;
+    }
+    
+    /* 隐藏Streamlit默认元素 */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
 
 with st.sidebar:
     # 显示用户信息
@@ -3867,23 +4074,113 @@ if uploaded_file is not None:
         os.remove(temp_path)
 
 else:
-    st.info("👆 请在左侧上传 MTK 文件开始分析")
+    # ========== 欢迎页面 ==========
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem;">
+        <h1 class="main-title">⚙️ 齿轮测量分析系统</h1>
+        <p style="font-size: 1.2rem; color: #666;">专业版 - 齿轮波纹度分析与质量评估</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # 功能卡片
+    st.markdown("### 🎯 核心功能")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div class="card">
+            <div class="card-header">📊 偏差分析</div>
+            <ul style="list-style: none; padding: 0;">
+                <li>✅ 齿形偏差 Fα 分析</li>
+                <li>✅ 齿向偏差 Fβ 分析</li>
+                <li>✅ 周节偏差 fp/Fp 分析</li>
+                <li>✅ 径向跳动 Fr 分析</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="card">
+            <div class="card-header">📈 频谱分析</div>
+            <ul style="list-style: none; padding: 0;">
+                <li>✅ 阶次振幅分析</li>
+                <li>✅ 极限曲线评估</li>
+                <li>✅ 主导阶次识别</li>
+                <li>✅ 波纹度评价</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class="card">
+            <div class="card-header">🤖 AI智能分析</div>
+            <ul style="list-style: none; padding: 0;">
+                <li>✅ 综合质量评分</li>
+                <li>✅ 问题智能诊断</li>
+                <li>✅ 原因深度分析</li>
+                <li>✅ 改进建议生成</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # 使用说明
+    st.markdown("### 📋 使用说明")
     
     st.markdown("""
-    ### 📋 功能说明
+    <div class="card">
+        <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+            <div style="background: #1f77b4; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 1rem;">1</div>
+            <div><b>上传数据</b> - 在左侧边栏上传 MKA 格式的齿轮测量数据文件</div>
+        </div>
+        <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+            <div style="background: #1f77b4; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 1rem;">2</div>
+            <div><b>选择功能</b> - 在左侧导航栏选择需要使用的分析功能</div>
+        </div>
+        <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+            <div style="background: #1f77b4; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 1rem;">3</div>
+            <div><b>查看报告</b> - 系统自动生成分析报告，支持PDF导出</div>
+        </div>
+        <div style="display: flex; align-items: center;">
+            <div style="background: #1f77b4; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 1rem;">4</div>
+            <div><b>AI分析</b> - 查看AI综合分析报告，获取质量评估和改进建议</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    本软件提供齿轮波纹度分析：
+    st.markdown("---")
     
-    | 功能 | 说明 |
-    |------|------|
-    | 📄 专业报告 | 齿形/齿向分析图表和数据表，支持PDF下载 |
-    | 🔍 三截面扭曲数据 | 齿号1a/1b/1c的齿形/齿向偏差报表 |
-    | 📊 周节详细报表 | 周节偏差 fp/Fp/Fr 分析 |
-    | 📈 单齿分析 | 单个齿的齿形/齿向偏差曲线 |
-    | 📉 合并曲线 | 0-360°合并曲线、高阶波纹度评价、前5齿放大 |
-    | 📊 频谱分析 | 阶次振幅相位分析（全部齿形/齿向） |
-    | 🤖 AI综合分析报告 | 综合评估齿轮质量，提供问题分析和改进建议 |
-    """)
-
-st.markdown("---")
-st.caption("齿轮波纹度软件 | 基于 Python + Streamlit 构建")
+    # 技术规格
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        #### 📐 支持标准
+        - GB/T 10095.1-2008
+        - ISO 1328-1:2014
+        - DIN 3962
+        - AGMA 2015-1-A01
+        """)
+    
+    with col2:
+        st.markdown("""
+        #### 📁 支持格式
+        - Klingelnberg MKA 格式
+        - 齿轮波纹度数据
+        - 齿形/齿向测量数据
+        - 周节测量数据
+        """)
+    
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; color: #666; padding: 1rem;">
+        <p>齿轮波纹度分析系统 专业版 | 基于 Python + Streamlit 构建</p>
+        <p style="font-size: 0.8rem;">© 2024 Gear Measurement Analysis System</p>
+    </div>
+    """, unsafe_allow_html=True)
