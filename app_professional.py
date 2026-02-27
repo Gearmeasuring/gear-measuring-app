@@ -3314,7 +3314,7 @@ if uploaded_file is not None:
         
         # 收集所有分析数据
         def generate_comprehensive_analysis():
-            """生成综合分析报告"""
+            """生成综合分析报告 - 智能分析齿轮问题"""
             report = {
                 'overall_score': 0,
                 'status': '正常',
@@ -3327,158 +3327,322 @@ if uploaded_file is not None:
                 'causes': [],
                 'recommendations': [],
                 'noise_prediction': '低',
-                'quality_grade': 'Q6'
+                'quality_grade': 'Q6',
+                'detailed_diagnosis': {}
             }
             
             scores = []
             
-            # 1. 齿形偏差分析
+            # ========== 1. 齿形偏差智能分析 ==========
             profile_score = 100
             profile_issues = []
+            profile_diagnosis = {}
+            
             if profile_eval:
                 for side in ['left', 'right']:
                     side_data = profile_data.get(side, {})
                     if side_data:
                         deviations = []
+                        all_ffa = []
+                        all_fHa = []
+                        all_Fa = []
+                        
                         for tooth_id, tooth_profiles in side_data.items():
-                                helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
-                                best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
-                                values = np.array(tooth_profiles[best_z])
-                                F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
-                                if F_a is not None:
-                                    deviations.append({'Fα': F_a, 'fHα': fH_a, 'ffα': ff_a})
+                            helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
+                            best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
+                            values = np.array(tooth_profiles[best_z])
+                            F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
+                            if F_a is not None:
+                                deviations.append({'Fα': F_a, 'fHα': fH_a, 'ffα': ff_a, 'Ca': Ca})
+                                all_Fa.append(F_a)
+                                all_fHa.append(fH_a)
+                                all_ffa.append(ff_a)
                         
                         if deviations:
-                            avg_Fa = np.mean([d['Fα'] for d in deviations])
-                            avg_fHa = np.mean([d['fHα'] for d in deviations])
-                            avg_ffa = np.mean([d['ffα'] for d in deviations])
+                            avg_Fa = np.mean(all_Fa)
+                            avg_fHa = np.mean(all_fHa)
+                            avg_ffa = np.mean(all_ffa)
+                            std_Fa = np.std(all_Fa) if len(all_Fa) > 1 else 0
                             
                             report['profile_analysis'][side] = {
                                 'avg_Fα': avg_Fa,
                                 'avg_fHα': avg_fHa,
-                                'avg_ffα': avg_ffa
+                                'avg_ffα': avg_ffa,
+                                'std_Fα': std_Fa
                             }
                             
-                            if avg_Fa > 15:
-                                profile_score -= 20
-                                profile_issues.append(f"{'左' if side == 'left' else '右'}齿面齿形总偏差Fα过大({avg_Fa:.2f}μm)")
-                            elif avg_Fa > 10:
-                                profile_score -= 10
-                                profile_issues.append(f"{'左' if side == 'left' else '右'}齿面齿形总偏差Fα偏大({avg_Fa:.2f}μm)")
+                            # 智能诊断齿形问题
+                            side_name = '左' if side == 'left' else '右'
                             
-                            if avg_fHa > 8:
+                            # 齿形总偏差分析
+                            if avg_Fa > 20:
+                                profile_score -= 25
+                                profile_issues.append(f"🔴 {side_name}齿面齿形总偏差Fα严重超标({avg_Fa:.2f}μm)")
+                                profile_diagnosis[side] = {'severity': 'critical', 'type': 'Fα_excessive'}
+                            elif avg_Fa > 15:
+                                profile_score -= 15
+                                profile_issues.append(f"🟠 {side_name}齿面齿形总偏差Fα过大({avg_Fa:.2f}μm)")
+                                profile_diagnosis[side] = {'severity': 'warning', 'type': 'Fα_high'}
+                            elif avg_Fa > 10:
+                                profile_score -= 8
+                                profile_issues.append(f"🟡 {side_name}齿面齿形总偏差Fα偏大({avg_Fa:.2f}μm)")
+                            
+                            # 齿形倾斜偏差分析 - 压力角误差
+                            if abs(avg_fHa) > 10:
+                                profile_score -= 15
+                                direction = "正" if avg_fHa > 0 else "负"
+                                profile_issues.append(f"🔴 {side_name}齿面压力角误差严重({direction}向倾斜{abs(avg_fHa):.2f}μm)")
+                                profile_diagnosis.setdefault(side, {})['pressure_angle'] = 'severe'
+                            elif abs(avg_fHa) > 6:
+                                profile_score -= 8
+                                direction = "正" if avg_fHa > 0 else "负"
+                                profile_issues.append(f"🟠 {side_name}齿面存在压力角误差({direction}向倾斜{abs(avg_fHa):.2f}μm)")
+                                profile_diagnosis.setdefault(side, {})['pressure_angle'] = 'moderate'
+                            
+                            # 齿形形状偏差分析 - 齿面波纹
+                            if avg_ffa > 8:
                                 profile_score -= 10
-                                profile_issues.append(f"{'左' if side == 'left' else '右'}齿面齿形倾斜偏差fHα过大")
+                                profile_issues.append(f"🟠 {side_name}齿面形状偏差ffα过大({avg_ffa:.2f}μm)，存在波纹")
+                                profile_diagnosis.setdefault(side, {})['waviness'] = True
+                            
+                            # 齿形一致性分析
+                            if std_Fa > 5:
+                                profile_score -= 8
+                                profile_issues.append(f"🟡 {side_name}齿面各齿齿形偏差不一致(标准差{std_Fa:.2f}μm)")
+                                profile_diagnosis.setdefault(side, {})['inconsistency'] = True
             
-            scores.append(profile_score)
-            report['profile_analysis']['score'] = profile_score
+            scores.append(max(0, profile_score))
+            report['profile_analysis']['score'] = max(0, profile_score)
             report['profile_analysis']['issues'] = profile_issues
+            report['detailed_diagnosis']['profile'] = profile_diagnosis
             
-            # 2. 齿向偏差分析
+            # ========== 2. 齿向偏差智能分析 ==========
             helix_score = 100
             helix_issues = []
+            helix_diagnosis = {}
+            
             if helix_eval:
                 for side in ['left', 'right']:
                     side_data = helix_data.get(side, {})
                     if side_data:
                         deviations = []
+                        all_Fb = []
+                        all_fHb = []
+                        all_ffb = []
+                        
                         for tooth_id, tooth_helix in side_data.items():
                             profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
                             best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
                             values = np.array(tooth_helix[best_d])
                             F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
                             if F_b is not None:
-                                deviations.append({'Fβ': F_b, 'fHβ': fH_b, 'ffβ': ff_b})
+                                deviations.append({'Fβ': F_b, 'fHβ': fH_b, 'ffβ': ff_b, 'Cb': Cb})
+                                all_Fb.append(F_b)
+                                all_fHb.append(fH_b)
+                                all_ffb.append(ff_b)
                         
                         if deviations:
-                            avg_Fb = np.mean([d['Fβ'] for d in deviations])
-                            avg_fHb = np.mean([d['fHβ'] for d in deviations])
-                            avg_ffb = np.mean([d['ffβ'] for d in deviations])
+                            avg_Fb = np.mean(all_Fb)
+                            avg_fHb = np.mean(all_fHb)
+                            avg_ffb = np.mean(all_ffb)
+                            std_Fb = np.std(all_Fb) if len(all_Fb) > 1 else 0
                             
                             report['helix_analysis'][side] = {
                                 'avg_Fβ': avg_Fb,
                                 'avg_fHβ': avg_fHb,
-                                'avg_ffβ': avg_ffb
+                                'avg_ffβ': avg_ffb,
+                                'std_Fβ': std_Fb
                             }
                             
-                            if avg_Fb > 15:
-                                helix_score -= 20
-                                helix_issues.append(f"{'左' if side == 'left' else '右'}齿面齿向总偏差Fβ过大({avg_Fb:.2f}μm)")
+                            side_name = '左' if side == 'left' else '右'
+                            
+                            # 齿向总偏差分析
+                            if avg_Fb > 20:
+                                helix_score -= 25
+                                helix_issues.append(f"🔴 {side_name}齿面齿向总偏差Fβ严重超标({avg_Fb:.2f}μm)")
+                                helix_diagnosis[side] = {'severity': 'critical', 'type': 'Fβ_excessive'}
+                            elif avg_Fb > 15:
+                                helix_score -= 15
+                                helix_issues.append(f"🟠 {side_name}齿面齿向总偏差Fβ过大({avg_Fb:.2f}μm)")
+                                helix_diagnosis[side] = {'severity': 'warning', 'type': 'Fβ_high'}
                             elif avg_Fb > 10:
+                                helix_score -= 8
+                                helix_issues.append(f"🟡 {side_name}齿面齿向总偏差Fβ偏大({avg_Fb:.2f}μm)")
+                            
+                            # 齿向倾斜偏差分析 - 螺旋角误差
+                            if abs(avg_fHb) > 10:
+                                helix_score -= 15
+                                direction = "正" if avg_fHb > 0 else "负"
+                                helix_issues.append(f"🔴 {side_name}齿面螺旋角误差严重({direction}向倾斜{abs(avg_fHb):.2f}μm)")
+                                helix_diagnosis.setdefault(side, {})['helix_angle'] = 'severe'
+                            elif abs(avg_fHb) > 6:
+                                helix_score -= 8
+                                direction = "正" if avg_fHb > 0 else "负"
+                                helix_issues.append(f"🟠 {side_name}齿面存在螺旋角误差({direction}向倾斜{abs(avg_fHb):.2f}μm)")
+                                helix_diagnosis.setdefault(side, {})['helix_angle'] = 'moderate'
+                            
+                            # 齿向形状偏差分析
+                            if avg_ffb > 8:
                                 helix_score -= 10
-                                helix_issues.append(f"{'左' if side == 'left' else '右'}齿面齿向总偏差Fβ偏大({avg_Fb:.2f}μm)")
+                                helix_issues.append(f"🟠 {side_name}齿面齿向形状偏差ffβ过大({avg_ffb:.2f}μm)")
+                                helix_diagnosis.setdefault(side, {})['shape_error'] = True
+                            
+                            # 齿向一致性分析
+                            if std_Fb > 5:
+                                helix_score -= 8
+                                helix_issues.append(f"🟡 {side_name}齿面各齿齿向偏差不一致(标准差{std_Fb:.2f}μm)")
+                                helix_diagnosis.setdefault(side, {})['inconsistency'] = True
             
-            scores.append(helix_score)
-            report['helix_analysis']['score'] = helix_score
+            scores.append(max(0, helix_score))
+            report['helix_analysis']['score'] = max(0, helix_score)
             report['helix_analysis']['issues'] = helix_issues
+            report['detailed_diagnosis']['helix'] = helix_diagnosis
             
-            # 3. 周节偏差分析
+            # ========== 3. 周节偏差智能分析 ==========
             pitch_score = 100
             pitch_issues = []
+            pitch_diagnosis = {}
+            
             if pitch_left:
-                if pitch_left.fp_max > 10:
-                    pitch_score -= 15
-                    pitch_issues.append(f"左齿面单个齿距偏差fp过大({pitch_left.fp_max:.2f}μm)")
-                if pitch_left.Fp_max > 30:
-                    pitch_score -= 15
-                    pitch_issues.append(f"左齿面齿距累积偏差Fp过大({pitch_left.Fp_max:.2f}μm)")
-                if pitch_left.Fr > 20:
-                    pitch_score -= 10
-                    pitch_issues.append(f"左齿面径向跳动Fr过大({pitch_left.Fr:.2f}μm)")
-                
                 report['pitch_analysis']['left'] = {
                     'fp_max': pitch_left.fp_max,
                     'Fp_max': pitch_left.Fp_max,
                     'Fr': pitch_left.Fr
                 }
+                
+                # 单个齿距偏差
+                if pitch_left.fp_max > 15:
+                    pitch_score -= 20
+                    pitch_issues.append(f"🔴 左齿面单个齿距偏差fp严重超标({pitch_left.fp_max:.2f}μm)")
+                    pitch_diagnosis['left_fp'] = 'critical'
+                elif pitch_left.fp_max > 10:
+                    pitch_score -= 12
+                    pitch_issues.append(f"🟠 左齿面单个齿距偏差fp过大({pitch_left.fp_max:.2f}μm)")
+                    pitch_diagnosis['left_fp'] = 'warning'
+                elif pitch_left.fp_max > 6:
+                    pitch_score -= 5
+                    pitch_issues.append(f"🟡 左齿面单个齿距偏差fp偏大({pitch_left.fp_max:.2f}μm)")
+                
+                # 齿距累积偏差
+                if pitch_left.Fp_max > 40:
+                    pitch_score -= 20
+                    pitch_issues.append(f"🔴 左齿面齿距累积偏差Fp严重超标({pitch_left.Fp_max:.2f}μm)")
+                    pitch_diagnosis['left_Fp'] = 'critical'
+                elif pitch_left.Fp_max > 30:
+                    pitch_score -= 12
+                    pitch_issues.append(f"🟠 左齿面齿距累积偏差Fp过大({pitch_left.Fp_max:.2f}μm)")
+                    pitch_diagnosis['left_Fp'] = 'warning'
+                elif pitch_left.Fp_max > 20:
+                    pitch_score -= 5
+                    pitch_issues.append(f"🟡 左齿面齿距累积偏差Fp偏大({pitch_left.Fp_max:.2f}μm)")
+                
+                # 径向跳动
+                if pitch_left.Fr > 25:
+                    pitch_score -= 15
+                    pitch_issues.append(f"🔴 左齿面径向跳动Fr严重超标({pitch_left.Fr:.2f}μm)")
+                    pitch_diagnosis['left_Fr'] = 'critical'
+                elif pitch_left.Fr > 20:
+                    pitch_score -= 10
+                    pitch_issues.append(f"🟠 左齿面径向跳动Fr过大({pitch_left.Fr:.2f}μm)")
+                    pitch_diagnosis['left_Fr'] = 'warning'
+                elif pitch_left.Fr > 15:
+                    pitch_score -= 5
+                    pitch_issues.append(f"🟡 左齿面径向跳动Fr偏大({pitch_left.Fr:.2f}μm)")
             
             if pitch_right:
-                if pitch_right.fp_max > 10:
-                    pitch_score -= 15
-                    pitch_issues.append(f"右齿面单个齿距偏差fp过大({pitch_right.fp_max:.2f}μm)")
-                if pitch_right.Fp_max > 30:
-                    pitch_score -= 15
-                    pitch_issues.append(f"右齿面齿距累积偏差Fp过大({pitch_right.Fp_max:.2f}μm)")
-                if pitch_right.Fr > 20:
-                    pitch_score -= 10
-                    pitch_issues.append(f"右齿面径向跳动Fr过大({pitch_right.Fr:.2f}μm)")
-                
                 report['pitch_analysis']['right'] = {
                     'fp_max': pitch_right.fp_max,
                     'Fp_max': pitch_right.Fp_max,
                     'Fr': pitch_right.Fr
                 }
+                
+                if pitch_right.fp_max > 15:
+                    pitch_score -= 20
+                    pitch_issues.append(f"🔴 右齿面单个齿距偏差fp严重超标({pitch_right.fp_max:.2f}μm)")
+                elif pitch_right.fp_max > 10:
+                    pitch_score -= 12
+                    pitch_issues.append(f"🟠 右齿面单个齿距偏差fp过大({pitch_right.fp_max:.2f}μm)")
+                elif pitch_right.fp_max > 6:
+                    pitch_score -= 5
+                    pitch_issues.append(f"🟡 右齿面单个齿距偏差fp偏大({pitch_right.fp_max:.2f}μm)")
+                
+                if pitch_right.Fp_max > 40:
+                    pitch_score -= 20
+                    pitch_issues.append(f"🔴 右齿面齿距累积偏差Fp严重超标({pitch_right.Fp_max:.2f}μm)")
+                elif pitch_right.Fp_max > 30:
+                    pitch_score -= 12
+                    pitch_issues.append(f"🟠 右齿面齿距累积偏差Fp过大({pitch_right.Fp_max:.2f}μm)")
+                elif pitch_right.Fp_max > 20:
+                    pitch_score -= 5
+                    pitch_issues.append(f"🟡 右齿面齿距累积偏差Fp偏大({pitch_right.Fp_max:.2f}μm)")
+                
+                if pitch_right.Fr > 25:
+                    pitch_score -= 15
+                    pitch_issues.append(f"🔴 右齿面径向跳动Fr严重超标({pitch_right.Fr:.2f}μm)")
+                elif pitch_right.Fr > 20:
+                    pitch_score -= 10
+                    pitch_issues.append(f"🟠 右齿面径向跳动Fr过大({pitch_right.Fr:.2f}μm)")
+                elif pitch_right.Fr > 15:
+                    pitch_score -= 5
+                    pitch_issues.append(f"🟡 右齿面径向跳动Fr偏大({pitch_right.Fr:.2f}μm)")
             
-            scores.append(pitch_score)
-            report['pitch_analysis']['score'] = pitch_score
+            scores.append(max(0, pitch_score))
+            report['pitch_analysis']['score'] = max(0, pitch_score)
             report['pitch_analysis']['issues'] = pitch_issues
+            report['detailed_diagnosis']['pitch'] = pitch_diagnosis
             
-            # 4. 频谱分析
+            # ========== 4. 频谱分析智能诊断 ==========
             spectrum_score = 100
             spectrum_issues = []
+            spectrum_diagnosis = {}
             ze = gear_params.teeth_count if gear_params else 87
             
             for name in ['profile_left', 'profile_right', 'helix_left', 'helix_right']:
                 if name in results and results[name]:
                     result = results[name]
-                    sorted_components = sorted(result.spectrum_components[:10], key=lambda c: c.order)
+                    sorted_components = sorted(result.spectrum_components[:15], key=lambda c: c.order)
                     
+                    # ZE主导阶次分析
+                    ze_amp = 0
                     for comp in sorted_components:
                         if abs(comp.order - ze) < 1:
-                            if comp.amplitude > 0.1:
-                                spectrum_score -= 10
-                                spectrum_issues.append(f"{name_mapping.get(name, name)}主导阶次ZE幅值过高({comp.amplitude:.4f}μm)")
+                            ze_amp = comp.amplitude
                             break
+                    
+                    if ze_amp > 0.15:
+                        spectrum_score -= 15
+                        spectrum_issues.append(f"🔴 {name_mapping.get(name, name)}主导阶次ZE幅值严重偏高({ze_amp:.4f}μm)")
+                        spectrum_diagnosis[name] = {'ze_severity': 'critical'}
+                    elif ze_amp > 0.1:
+                        spectrum_score -= 10
+                        spectrum_issues.append(f"🟠 {name_mapping.get(name, name)}主导阶次ZE幅值偏高({ze_amp:.4f}μm)")
+                        spectrum_diagnosis[name] = {'ze_severity': 'warning'}
+                    elif ze_amp > 0.05:
+                        spectrum_score -= 5
+                        spectrum_issues.append(f"🟡 {name_mapping.get(name, name)}主导阶次ZE幅值略高({ze_amp:.4f}μm)")
+                    
+                    # 2ZE分析 - 偏心/椭圆度
+                    ze2_amp = 0
+                    for comp in sorted_components:
+                        if abs(comp.order - 2*ze) < 1:
+                            ze2_amp = comp.amplitude
+                            break
+                    
+                    if ze2_amp > 0.08:
+                        spectrum_score -= 10
+                        spectrum_issues.append(f"🟠 {name_mapping.get(name, name)}2倍频幅值偏高({ze2_amp:.4f}μm)，可能存在偏心")
+                        spectrum_diagnosis.setdefault(name, {})['eccentricity'] = True
             
-            scores.append(spectrum_score)
-            report['spectrum_analysis']['score'] = spectrum_score
+            scores.append(max(0, spectrum_score))
+            report['spectrum_analysis']['score'] = max(0, spectrum_score)
             report['spectrum_analysis']['issues'] = spectrum_issues
+            report['detailed_diagnosis']['spectrum'] = spectrum_diagnosis
             
-            # 计算综合评分
+            # ========== 5. 计算综合评分 ==========
             overall_score = np.mean(scores) if scores else 100
             report['overall_score'] = overall_score
             
-            # 确定状态（与频谱分析AI保持一致）
+            # ========== 6. 智能状态判断 ==========
             if overall_score >= 95:
                 report['status'] = '优秀'
                 report['status_color'] = 'green'
@@ -3505,39 +3669,94 @@ if uploaded_file is not None:
                 report['noise_prediction'] = '很高'
                 report['quality_grade'] = 'Q9+'
             
-            # 汇总问题
+            # ========== 7. 智能原因分析 ==========
             all_issues = profile_issues + helix_issues + pitch_issues + spectrum_issues
             report['issues'] = all_issues
             
-            # 生成原因分析
+            diagnosis = report['detailed_diagnosis']
+            
+            # 齿形问题原因
             if any('Fα' in issue for issue in all_issues):
-                report['causes'].append("齿形误差可能由刀具磨损、机床分度误差或加工参数不当引起")
+                if diagnosis.get('profile', {}).get('left', {}).get('pressure_angle') == 'severe' or \
+                   diagnosis.get('profile', {}).get('right', {}).get('pressure_angle') == 'severe':
+                    report['causes'].append("🔧 压力角误差严重：刀具齿形角误差大或砂轮修整角度不正确")
+                else:
+                    report['causes'].append("🔧 齿形误差：可能由刀具磨损、砂轮修整不良或加工参数不当引起")
+            
+            if any('压力角' in issue for issue in all_issues):
+                report['causes'].append("🔧 压力角偏差：检查刀具/砂轮的齿形角，调整加工参数")
+            
+            if any('ffα' in issue for issue in all_issues) or any('波纹' in issue for issue in all_issues):
+                report['causes'].append("🔧 齿面波纹：可能由磨削振动、砂轮不平衡或主轴跳动引起")
+            
+            # 齿向问题原因
             if any('Fβ' in issue for issue in all_issues):
-                report['causes'].append("齿向误差可能由机床导轨误差、工件装夹变形或热变形引起")
+                report['causes'].append("🔧 齿向误差：可能由机床导轨误差、工件装夹变形或热变形引起")
+            
+            if any('螺旋角' in issue for issue in all_issues):
+                report['causes'].append("🔧 螺旋角偏差：检查差动挂轮计算，调整机床螺旋角设置")
+            
+            # 周节问题原因
             if any('fp' in issue for issue in all_issues):
-                report['causes'].append("齿距误差可能由分度机构误差、刀具误差或工件偏心引起")
+                report['causes'].append("🔧 齿距误差：可能由分度机构误差、刀具误差或工件偏心引起")
+            
+            if any('Fp' in issue for issue in all_issues):
+                report['causes'].append("🔧 齿距累积误差：检查分度盘精度，检查工件安装偏心")
+            
             if any('Fr' in issue for issue in all_issues):
-                report['causes'].append("径向跳动可能由工件安装偏心、轴承间隙或主轴跳动引起")
+                report['causes'].append("🔧 径向跳动：可能由工件安装偏心、轴承间隙或主轴跳动引起")
+            
+            # 频谱问题原因
             if any('ZE' in issue for issue in all_issues):
-                report['causes'].append("主导阶次幅值高可能由分度误差、刀具误差或齿轮偏心引起")
+                report['causes'].append("🔧 主导阶次异常：分度误差或刀具误差导致")
+            
+            if any('偏心' in issue for issue in all_issues):
+                report['causes'].append("🔧 偏心问题：检查工件安装偏心量和内孔精度")
+            
+            # 一致性问题
+            if any('不一致' in issue for issue in all_issues):
+                report['causes'].append("🔧 各齿偏差不一致：检查加工过程稳定性，检查夹紧力是否均匀")
             
             if not report['causes']:
-                report['causes'].append("齿轮各项指标正常，加工质量良好")
+                report['causes'].append("✅ 齿轮各项指标正常，加工质量良好")
             
-            # 生成改进建议
-            if overall_score < 80:
-                report['recommendations'].append("建议全面检查加工机床精度和刀具状态")
-            if any('Fα' in issue for issue in all_issues):
-                report['recommendations'].append("优化齿形加工：检查刀具磨损，调整加工参数")
-            if any('Fβ' in issue for issue in all_issues):
-                report['recommendations'].append("优化齿向加工：检查机床导轨，改善装夹方式")
+            # ========== 8. 智能改进建议 ==========
+            if overall_score < 60:
+                report['recommendations'].append("⚠️ 建议立即停机检查，全面排查加工设备精度")
+            elif overall_score < 80:
+                report['recommendations'].append("📋 建议全面检查加工机床精度和刀具状态")
+            
+            # 齿形改进
+            if any('Fα' in issue or '压力角' in issue for issue in all_issues):
+                report['recommendations'].append("📐 齿形优化：检查刀具/砂轮磨损，重新修整砂轮，调整加工参数")
+            
+            if any('ffα' in issue or '波纹' in issue for issue in all_issues):
+                report['recommendations'].append("📐 减少波纹：检查砂轮平衡，检查主轴精度，降低磨削用量")
+            
+            # 齿向改进
+            if any('Fβ' in issue or '螺旋角' in issue for issue in all_issues):
+                report['recommendations'].append("📐 齿向优化：检查导轨精度，校准螺旋角设置，改善装夹方式")
+            
+            # 周节改进
             if any('fp' in issue or 'Fp' in issue for issue in all_issues):
-                report['recommendations'].append("优化齿距精度：检查分度机构，校准刀具")
+                report['recommendations'].append("📐 齿距优化：检查分度机构精度，校准分度盘，检查蜗轮蜗杆磨损")
+            
             if any('Fr' in issue for issue in all_issues):
-                report['recommendations'].append("降低径向跳动：改善工件装夹,检查主轴精度")
+                report['recommendations'].append("📐 降低跳动：改善工件装夹，检查夹具精度，检查主轴轴承")
+            
+            # 频谱改进
+            if any('ZE' in issue for issue in all_issues):
+                report['recommendations'].append("📐 降低主导阶次：优化分度精度，检查刀具/砂轮状态")
+            
+            if any('偏心' in issue for issue in all_issues):
+                report['recommendations'].append("📐 消除偏心：重新安装工件，检查内孔与心轴配合")
+            
+            # 一致性改进
+            if any('不一致' in issue for issue in all_issues):
+                report['recommendations'].append("📐 提高一致性：检查夹紧力均匀性，检查加工过程稳定性")
             
             if not report['recommendations']:
-                report['recommendations'].append("继续保持当前加工工艺，定期监测质量")
+                report['recommendations'].append("✅ 继续保持当前加工工艺，定期监测质量")
             
             return report
         
