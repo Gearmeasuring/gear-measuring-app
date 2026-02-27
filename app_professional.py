@@ -1998,6 +1998,177 @@ if uploaded_file is not None:
                 'helix_right': analyzer.analyze_helix('right', verbose=False)
             }
 
+        # ========== PDF报表生成按钮 ==========
+        st.markdown("### 📄 生成频谱分析报表")
+        
+        # 极限曲线参数设置（全局）
+        st.markdown("**Limit Curve Parameters (应用于所有报表)**")
+        col_p1, col_p2, col_p3 = st.columns(3)
+        with col_p1:
+            pdf_R = st.number_input("R (mm)", min_value=0.0001, max_value=10.0, value=0.0039, step=0.0001, format="%.4f", key="pdf_R")
+        with col_p2:
+            pdf_N0 = st.number_input("N₀", min_value=0.0, max_value=5.0, value=0.6, step=0.1, format="%.1f", key="pdf_N0")
+        with col_p3:
+            pdf_K = st.number_input("K", min_value=0.0, max_value=10.0, value=2.8, step=0.1, format="%.1f", key="pdf_K")
+        
+        if st.button("📥 生成频谱分析PDF报表", type="primary"):
+            with st.spinner("正在生成PDF报表..."):
+                try:
+                    from reportlab.lib.pagesizes import A4
+                    from reportlab.lib import colors
+                    from reportlab.lib.units import mm
+                    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+                    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                    from reportlab.pdfbase import pdfmetrics
+                    from reportlab.pdfbase.ttfonts import TTFont
+                    import io
+                    
+                    # 创建PDF
+                    pdf_buffer = io.BytesIO()
+                    doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, 
+                                           leftMargin=15*mm, rightMargin=15*mm,
+                                           topMargin=15*mm, bottomMargin=15*mm)
+                    
+                    elements = []
+                    styles = getSampleStyleSheet()
+                    
+                    # 标题
+                    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16, alignment=1)
+                    elements.append(Paragraph("Spectrum Analysis Report", title_style))
+                    elements.append(Spacer(1, 5*mm))
+                    
+                    # 极限曲线参数
+                    param_text = f"Limit Curve Parameters: R = {pdf_R:.4f} mm, N₀ = {pdf_N0:.1f}, K = {pdf_K:.1f}"
+                    elements.append(Paragraph(param_text, styles['Normal']))
+                    elements.append(Paragraph("Formula: Tolerance = R / (O-1)^(N₀+K/O)", styles['Normal']))
+                    elements.append(Spacer(1, 5*mm))
+                    
+                    # 计算极限曲线函数
+                    def calc_tolerance(orders, R, N0, K):
+                        tolerances = []
+                        for O in orders:
+                            if O <= 1:
+                                tolerances.append(R)
+                            else:
+                                N = N0 + K / O
+                                tolerance = R / ((O - 1) ** N)
+                                tolerances.append(tolerance)
+                        return tolerances
+                    
+                    # 为每个分析结果生成报表
+                    for name, result in results.items():
+                        if result is None or len(result.angles) == 0:
+                            continue
+                        
+                        display_name = name_mapping.get(name, name)
+                        
+                        # 小标题
+                        elements.append(Paragraph(f"<b>{display_name}</b>", styles['Heading2']))
+                        elements.append(Spacer(1, 3*mm))
+                        
+                        # 生成频谱图
+                        sorted_components = sorted(result.spectrum_components[:20], key=lambda c: c.order)
+                        orders = [c.order for c in sorted_components]
+                        amplitudes = [c.amplitude for c in sorted_components]
+                        
+                        if orders and amplitudes:
+                            # 创建图表
+                            fig, ax = plt.subplots(figsize=(7, 3.5))
+                            
+                            tolerance_values = calc_tolerance(orders, pdf_R, pdf_N0, pdf_K)
+                            colors_bar = ['red' if amp > tol else 'steelblue' for amp, tol in zip(amplitudes, tolerance_values)]
+                            ax.bar(orders, amplitudes, color=colors_bar, alpha=0.7, width=3, label='Amplitude')
+                            
+                            ze_multiples = [ze * i for i in range(1, 5) if ze * i <= max(orders) + 20]
+                            for i, ze_mult in enumerate(ze_multiples, 1):
+                                if i == 1:
+                                    ax.axvline(x=ze_mult, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
+                                else:
+                                    ax.axvline(x=ze_mult, color='orange', linestyle=':', linewidth=1.5, alpha=0.7)
+                            
+                            order_range = np.linspace(2, max(orders) + 20, 200)
+                            tolerance_curve = calc_tolerance(order_range, pdf_R, pdf_N0, pdf_K)
+                            ax.plot(order_range, tolerance_curve, color='darkorange', linewidth=2.5, label='Tolerance Limit')
+                            
+                            max_amplitude = max(amplitudes) if amplitudes else 1
+                            max_tolerance = max(tolerance_curve) if len(tolerance_curve) > 0 else 1
+                            y_max = max(max_amplitude, max_tolerance) * 1.2
+                            ax.set_ylim(0, y_max)
+                            ax.set_xlim(0, max(orders) + 20)
+                            
+                            ax.set_xlabel('Order')
+                            ax.set_ylabel('Amplitude (μm) / Tolerance (mm)')
+                            ax.set_title(f'{display_name} - Spectrum (ZE={ze})')
+                            ax.legend(loc='upper right', fontsize=8)
+                            ax.grid(True, alpha=0.3)
+                            plt.tight_layout()
+                            
+                            # 保存图表到内存
+                            img_buffer = io.BytesIO()
+                            fig.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
+                            img_buffer.seek(0)
+                            plt.close(fig)
+                            
+                            # 添加图表到PDF
+                            img = Image(img_buffer, width=170*mm, height=85*mm)
+                            elements.append(img)
+                            elements.append(Spacer(1, 3*mm))
+                        
+                        # 数据表
+                        table_data = [['Rank', 'Order', 'Amplitude (μm)', 'Phase (°)', 'Type', 'Status']]
+                        for i, comp in enumerate(result.spectrum_components[:10]):
+                            order_type = 'High' if comp.order >= ze else 'Low'
+                            # 计算状态
+                            tol = calc_tolerance([comp.order], pdf_R, pdf_N0, pdf_K)[0]
+                            status = 'FAIL' if comp.amplitude > tol else 'PASS'
+                            table_data.append([
+                                str(i + 1),
+                                str(int(comp.order)),
+                                f"{comp.amplitude:.4f}",
+                                f"{np.degrees(comp.phase):.1f}",
+                                order_type,
+                                status
+                            ])
+                        
+                        table = Table(table_data, colWidths=[20*mm, 25*mm, 35*mm, 30*mm, 20*mm, 25*mm])
+                        table.setStyle(TableStyle([
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                            ('FONTSIZE', (0, 0), (-1, 0), 9),
+                            ('FONTSIZE', (0, 1), (-1, -1), 8),
+                            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+                            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                            ('TEXTCOLOR', (5, 1), (5, -1), colors.red),  # Status列
+                        ]))
+                        elements.append(table)
+                        elements.append(Spacer(1, 5*mm))
+                        
+                        # 每个分析结果后添加分页（除了最后一个）
+                        if name != list(results.keys())[-1]:
+                            elements.append(PageBreak())
+                    
+                    # 生成PDF
+                    doc.build(elements)
+                    pdf_buffer.seek(0)
+                    
+                    st.success("✅ PDF报表生成成功！")
+                    st.download_button(
+                        label="📥 下载频谱分析PDF报表",
+                        data=pdf_buffer,
+                        file_name=f"spectrum_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        mime="application/pdf"
+                    )
+                    
+                except Exception as e:
+                    st.error(f"生成PDF失败: {e}")
+                    import traceback
+                    st.error(traceback.format_exc())
+        
+        st.markdown("---")
+
         for name, result in results.items():
             if result is None or len(result.angles) == 0:
                 continue
