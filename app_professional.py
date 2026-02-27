@@ -1959,10 +1959,9 @@ if uploaded_file is not None:
                 R = 50  # 参考幅值 (μm)
                 N0 = 1.0  # 基础指数
                 K = 0.5  # 修正系数
-                O_ref = 2  # 参考阶次
 
                 # 计算极限曲线
-                def calculate_tolerance_curve(orders, R, N0, K, O_ref):
+                def calculate_tolerance_curve(orders, R, N0, K):
                     """计算极限曲线公差值"""
                     tolerances = []
                     for O in orders:
@@ -1974,43 +1973,63 @@ if uploaded_file is not None:
                             tolerances.append(tolerance)
                     return tolerances
 
-                fig, ax = plt.subplots(figsize=(12, 5))
+                fig, ax1 = plt.subplots(figsize=(12, 5))
                 sorted_components = sorted(result.spectrum_components[:20], key=lambda c: c.order)
                 orders = [c.order for c in sorted_components]
                 amplitudes = [c.amplitude for c in sorted_components]
 
                 if orders and amplitudes:
                     colors_bar = ['red' if o >= ze else 'steelblue' for o in orders]
-                    ax.bar(orders, amplitudes, color=colors_bar, alpha=0.7, width=3)
+                    ax1.bar(orders, amplitudes, color=colors_bar, alpha=0.7, width=3, label='Amplitude')
 
                     # 标识 ZE 及其倍数
                     ze_multiples = [ze * i for i in range(1, 5) if ze * i <= max(orders) + 20]
                     for i, ze_mult in enumerate(ze_multiples, 1):
                         if i == 1:
-                            ax.axvline(x=ze_mult, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
+                            ax1.axvline(x=ze_mult, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
                         else:
-                            ax.axvline(x=ze_mult, color='orange', linestyle=':', linewidth=1.5, alpha=0.7, label=f'{i}×ZE={ze_mult}')
+                            ax1.axvline(x=ze_mult, color='orange', linestyle=':', linewidth=1.5, alpha=0.7, label=f'{i}×ZE={ze_mult}')
 
+                    # 设置左Y轴范围（频谱幅值）
+                    max_amplitude = max(amplitudes) if amplitudes else 1
+                    ax1.set_ylim(0, max_amplitude * 1.2)
+
+                    # 创建右Y轴用于极限曲线
+                    ax2 = ax1.twinx()
+                    
                     # 绘制极限曲线
-                    order_range = np.linspace(1.1, max(orders) + 20, 200)
-                    tolerance_curve = calculate_tolerance_curve(order_range, R, N0, K, O_ref)
-                    ax.plot(order_range, tolerance_curve, 'r-', linewidth=2, label='Tolerance Limit', linestyle='--')
+                    order_range = np.linspace(2, max(orders) + 20, 200)
+                    tolerance_curve = calculate_tolerance_curve(order_range, R, N0, K)
+                    ax2.plot(order_range, tolerance_curve, 'r--', linewidth=2, label='Tolerance Limit')
+                    ax2.set_ylabel('Tolerance (μm)', color='red')
+                    ax2.tick_params(axis='y', labelcolor='red')
+                    
+                    # 设置右Y轴范围
+                    ax2.set_ylim(0, max(tolerance_curve) * 1.1 if tolerance_curve else 100)
 
-                    ax.set_xlim(0, max(orders) + 20)
+                    ax1.set_xlim(0, max(orders) + 20)
 
-                ax.set_xlabel('Order')
-                ax.set_ylabel('Amplitude (μm)')
-                ax.set_title(f'{display_name} - Spectrum (ZE={ze})')
-                ax.legend(loc='upper right')
-                ax.grid(True, alpha=0.3)
+                ax1.set_xlabel('Order')
+                ax1.set_ylabel('Amplitude (μm)')
+                ax1.set_title(f'{display_name} - Spectrum (ZE={ze})')
+                
+                # 合并图例
+                lines1, labels1 = ax1.get_legend_handles_labels()
+                if 'ax2' in dir():
+                    lines2, labels2 = ax2.get_legend_handles_labels()
+                    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
+                else:
+                    ax1.legend(loc='upper right')
+                    
+                ax1.grid(True, alpha=0.3)
 
                 # 在图表右侧添加极限曲线参数说明
-                ax.text(1.02, 0.98, f'Limit Curve Parameters:\n'
+                ax1.text(1.15, 0.98, f'Limit Curve Parameters:\n'
                                     f'R = {R} μm\n'
                                     f'N₀ = {N0}\n'
                                     f'K = {K}\n'
                                     f'Formula: R/(O-1)^(N₀+K/O)',
-                        transform=ax.transAxes, fontsize=9,
+                        transform=ax1.transAxes, fontsize=9,
                         verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
                 st.pyplot(fig)
