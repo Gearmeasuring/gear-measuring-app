@@ -402,37 +402,38 @@ if uploaded_file is not None:
         
         TEETH_PER_PAGE = 6  # 每页显示6个齿
         
-        # 计算总页数
+        # 计算总页数（齿形和齿向使用相同的页数）
         profile_max_teeth = max(len(profile_teeth_left), len(profile_teeth_right))
-        profile_total_pages = max(1, (profile_max_teeth + TEETH_PER_PAGE - 1) // TEETH_PER_PAGE)
-        
         helix_max_teeth = max(len(helix_teeth_left), len(helix_teeth_right))
-        helix_total_pages = max(1, (helix_max_teeth + TEETH_PER_PAGE - 1) // TEETH_PER_PAGE)
+        max_teeth = max(profile_max_teeth, helix_max_teeth)
+        total_pages = max(1, (max_teeth + TEETH_PER_PAGE - 1) // TEETH_PER_PAGE)
         
-        # ========== Profile 齿形分析 ==========
-        st.markdown("### Profile 齿形分析")
-        
-        # 齿形分页控制
-        profile_page = st.session_state.pagination.get('profile_page', 1)
+        # ========== 统一分页控制 ==========
+        current_page = st.session_state.pagination.get('current_page', 1)
         
         col_prev, col_info, col_next = st.columns([1, 3, 1])
         with col_prev:
-            if st.button("⬅️ 上一页", key="profile_prev") and profile_page > 1:
-                st.session_state.pagination['profile_page'] = profile_page - 1
+            if st.button("⬅️ 上一页", key="page_prev") and current_page > 1:
+                st.session_state.pagination['current_page'] = current_page - 1
                 st.rerun()
         with col_info:
-            st.markdown(f"**第 {profile_page} / {profile_total_pages} 页**")
+            st.markdown(f"**第 {current_page} / {total_pages} 页**")
         with col_next:
-            if st.button("➡️ 下一页", key="profile_next") and profile_page < profile_total_pages:
-                st.session_state.pagination['profile_page'] = profile_page + 1
+            if st.button("➡️ 下一页", key="page_next") and current_page < total_pages:
+                st.session_state.pagination['current_page'] = current_page + 1
                 st.rerun()
         
         # 计算当前页的齿号范围
-        profile_start_idx = (profile_page - 1) * TEETH_PER_PAGE
-        profile_end_idx = profile_start_idx + TEETH_PER_PAGE
+        start_idx = (current_page - 1) * TEETH_PER_PAGE
+        end_idx = start_idx + TEETH_PER_PAGE
         
-        current_profile_left = profile_teeth_left[profile_start_idx:profile_end_idx]
-        current_profile_right = profile_teeth_right[profile_start_idx:profile_end_idx]
+        current_profile_left = profile_teeth_left[start_idx:end_idx]
+        current_profile_right = profile_teeth_right[start_idx:end_idx]
+        current_helix_left = helix_teeth_left[start_idx:end_idx]
+        current_helix_right = helix_teeth_right[start_idx:end_idx]
+        
+        # ========== Profile 齿形分析 ==========
+        st.markdown("### Profile 齿形分析")
         
         # ========== 左右齿形图表并排显示 ==========
         left_profile_results = []
@@ -621,28 +622,6 @@ if uploaded_file is not None:
         
         # ========== Helix 齿向分析 ==========
         st.markdown("### Helix 齿向分析")
-        
-        # 齿向分页控制
-        helix_page = st.session_state.pagination.get('helix_page', 1)
-        
-        col_prev, col_info, col_next = st.columns([1, 3, 1])
-        with col_prev:
-            if st.button("⬅️ 上一页", key="helix_prev") and helix_page > 1:
-                st.session_state.pagination['helix_page'] = helix_page - 1
-                st.rerun()
-        with col_info:
-            st.markdown(f"**第 {helix_page} / {helix_total_pages} 页**")
-        with col_next:
-            if st.button("➡️ 下一页", key="helix_next") and helix_page < helix_total_pages:
-                st.session_state.pagination['helix_page'] = helix_page + 1
-                st.rerun()
-        
-        # 计算当前页的齿号范围
-        helix_start_idx = (helix_page - 1) * TEETH_PER_PAGE
-        helix_end_idx = helix_start_idx + TEETH_PER_PAGE
-        
-        current_helix_left = helix_teeth_left[helix_start_idx:helix_end_idx]
-        current_helix_right = helix_teeth_right[helix_start_idx:helix_end_idx]
         
         # ========== 左右齿向图表并排显示 ==========
         left_helix_results = []
