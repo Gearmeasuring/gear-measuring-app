@@ -1467,6 +1467,57 @@ if uploaded_file is not None:
                     if spectrum_components:
                         st.markdown(f"**{side_name} - Single Tooth Expanded Spectrum**")
                         
+                        # 计算极限曲线
+                        def calculate_tolerance_curve_single(orders, R, N0, K):
+                            tolerances = []
+                            for O in orders:
+                                if O <= 1:
+                                    tolerances.append(R)
+                                else:
+                                    N = N0 + K / O
+                                    tolerance = R / ((O - 1) ** N)
+                                    tolerances.append(tolerance)
+                            return tolerances
+
+                        # 根据实际数据自动计算极限曲线参数
+                        orders_spec = [c.order for c in spectrum_components[:15]]
+                        amplitudes_spec = [c.amplitude for c in spectrum_components[:15]]
+                        
+                        if amplitudes_spec and orders_spec:
+                            N0_auto = 0.6
+                            K_auto = 2.8
+                            
+                            # 找到ZE处的幅值
+                            ze_amplitude = None
+                            for o, amp in zip(orders_spec, amplitudes_spec):
+                                if abs(o - ze) < 1:
+                                    if ze_amplitude is None or amp > ze_amplitude:
+                                        ze_amplitude = amp
+                            
+                            if ze_amplitude is not None:
+                                N_at_ze = N0_auto + K_auto / ze
+                                R_auto = ze_amplitude * 1.5 * ((ze - 1) ** N_at_ze)
+                            else:
+                                max_amp = max(amplitudes_spec)
+                                R_auto = max_amp * 2.0 * ((ze - 1) ** (N0_auto + K_auto / ze))
+                            
+                            R_auto = max(0.0001, min(R_auto, 10.0))
+                        else:
+                            R_auto = 0.0039
+                            N0_auto = 0.6
+                            K_auto = 2.8
+                        
+                        # 显示极限曲线参数并可调节
+                        st.markdown("**Limit Curve Parameters**")
+                        st.markdown("*Formula: Tolerance = R / (O-1)^(N₀+K/O)*")
+                        col_p1, col_p2, col_p3 = st.columns(3)
+                        with col_p1:
+                            R_input = st.number_input("R (mm)", min_value=0.0001, max_value=10.0, value=float(R_auto), step=0.0001, format="%.4f", key=f"R_single_{side}")
+                        with col_p2:
+                            N0_input = st.number_input("N₀", min_value=0.0, max_value=5.0, value=float(N0_auto), step=0.1, format="%.1f", key=f"N0_single_{side}")
+                        with col_p3:
+                            K_input = st.number_input("K", min_value=0.0, max_value=10.0, value=float(K_auto), step=0.1, format="%.1f", key=f"K_single_{side}")
+                        
                         col1, col2 = st.columns([3, 2])
                         
                         with col1:
@@ -1489,8 +1540,12 @@ if uploaded_file is not None:
                             orders = [c.order for c in spectrum_components[:15]]
                             amplitudes = [c.amplitude for c in spectrum_components[:15]]
                             
-                            colors = ['red' if o >= ze else 'steelblue' for o in orders]
-                            ax2.bar(orders, amplitudes, color=colors, alpha=0.7)
+                            # 计算每个阶次的极限值
+                            tolerance_values = calculate_tolerance_curve_single(orders, R_input, N0_input, K_input)
+                            
+                            # 根据是否超出极限设置颜色
+                            colors = ['red' if amp > tol else 'steelblue' for amp, tol in zip(amplitudes, tolerance_values)]
+                            ax2.bar(orders, amplitudes, color=colors, alpha=0.7, width=3, label='Amplitude')
                             
                             # 标记ZE及其倍数
                             ze_multiples = [ze * i for i in range(1, 5) if ze * i <= max(orders)]
@@ -1500,10 +1555,21 @@ if uploaded_file is not None:
                                 else:
                                     ax2.axvline(x=ze_mult, color='orange', linestyle=':', linewidth=1.5, alpha=0.7)
                             
+                            # 绘制极限曲线（橘黄色）
+                            order_range = np.linspace(2, max(orders) + 10, 200)
+                            tolerance_curve = calculate_tolerance_curve_single(order_range, R_input, N0_input, K_input)
+                            ax2.plot(order_range, tolerance_curve, color='darkorange', linewidth=2.5, label='Tolerance Limit', linestyle='-')
+                            
+                            # 设置Y轴范围
+                            max_amplitude = max(amplitudes) if amplitudes else 1
+                            max_tolerance = max(tolerance_curve) if len(tolerance_curve) > 0 else 1
+                            y_max = max(max_amplitude, max_tolerance) * 1.2
+                            ax2.set_ylim(0, y_max)
+                            
                             ax2.set_title(f'Single Tooth Expanded Spectrum (ZE={ze})', fontsize=10, fontweight='bold')
                             ax2.set_xlabel('Order')
-                            ax2.set_ylabel('Amplitude (μm)')
-                            ax2.legend()
+                            ax2.set_ylabel('Amplitude (μm) / Tolerance (mm)')
+                            ax2.legend(loc='upper right')
                             ax2.grid(True, alpha=0.3)
                             st.pyplot(fig2)
                             plt.close(fig2)
