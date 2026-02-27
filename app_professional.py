@@ -4219,59 +4219,183 @@ if uploaded_file is not None:
         # 生成报告
         comprehensive_report = generate_comprehensive_analysis()
         
-        # 显示综合评分
-        st.markdown("### 📊 综合评估")
-        col1, col2, col3, col4 = st.columns(4)
+        # ========== 综合评估仪表板 ==========
+        st.markdown(f"""
+        <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin-bottom: 1.5rem;">
+            <div style="text-align: center; padding: 1.5rem;">
+                <div style="font-size: 3.5rem; font-weight: 700;">{comprehensive_report['overall_score']:.0f}</div>
+                <div style="font-size: 1rem; opacity: 0.9;">综合评分</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # 状态卡片
+        col1, col2, col3 = st.columns(3)
+        
+        status_color = comprehensive_report['status_color']
+        status_text = comprehensive_report['status']
+        
         with col1:
-            st.metric("综合评分", f"{comprehensive_report['overall_score']:.0f}分")
+            status_class = 'status-excellent' if status_text in ['优秀', '良好'] else 'status-warning' if status_text in ['合格', '需关注'] else 'status-danger'
+            st.markdown(f"""
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 0.9rem; color: #6b7280; margin-bottom: 0.5rem;">齿轮状态</div>
+                <div class="{status_class}" style="display: inline-block;">{status_text}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col2:
-            status_color = comprehensive_report['status_color']
-            st.markdown(f"**状态: <span style='color:{status_color};font-size:20px;font-weight:bold;'>{comprehensive_report['status']}</span>**", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 0.9rem; color: #6b7280; margin-bottom: 0.5rem;">质量等级</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: #1f2937;">{comprehensive_report['quality_grade']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col3:
-            st.metric("质量等级", comprehensive_report['quality_grade'])
-        with col4:
-            noise_color = 'green' if comprehensive_report['noise_prediction'] in ['很低', '低'] else 'orange' if comprehensive_report['noise_prediction'] == '中等' else 'red'
-            st.markdown(f"**噪声预测: <span style='color:{noise_color};'>{comprehensive_report['noise_prediction']}</span>**", unsafe_allow_html=True)
+            noise = comprehensive_report['noise_prediction']
+            noise_icon = '🔇' if noise == '很低' else '🔈' if noise == '低' else '🔉' if noise == '中等' else '🔊'
+            noise_class = 'status-excellent' if noise in ['很低', '低'] else 'status-warning' if noise == '中等' else 'status-danger'
+            st.markdown(f"""
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 0.9rem; color: #6b7280; margin-bottom: 0.5rem;">噪声预测</div>
+                <div class="{noise_class}" style="display: inline-block;">{noise_icon} {noise}</div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # 分项评分
-        st.markdown("### 📈 分项评分")
+        st.markdown("---")
+        
+        # ========== 分项评分仪表板 ==========
+        st.markdown("### 📊 分项评分详情")
+        
+        profile_score = comprehensive_report['profile_analysis'].get('score', 100)
+        helix_score = comprehensive_report['helix_analysis'].get('score', 100)
+        pitch_score = comprehensive_report['pitch_analysis'].get('score', 100)
+        spectrum_score = comprehensive_report['spectrum_analysis'].get('score', 100)
+        
         score_cols = st.columns(4)
+        
         with score_cols[0]:
-            profile_score = comprehensive_report['profile_analysis'].get('score', 100)
-            st.metric("齿形偏差", f"{profile_score:.0f}分")
-            st.progress(profile_score / 100)
+            color = '#10b981' if profile_score >= 85 else '#f59e0b' if profile_score >= 70 else '#ef4444'
+            st.markdown(f"""
+            <div class="card" style="border-left: 4px solid {color};">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 0.85rem; color: #6b7280;">齿形偏差</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: {color};">{profile_score:.0f}<span style="font-size: 0.9rem; color: #9ca3af;">/100</span></div>
+                    </div>
+                    <div style="font-size: 2rem;">📊</div>
+                </div>
+                <div style="margin-top: 0.5rem; background: #e5e7eb; border-radius: 4px; height: 6px;">
+                    <div style="background: {color}; border-radius: 4px; height: 100%; width: {profile_score}%;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with score_cols[1]:
-            helix_score = comprehensive_report['helix_analysis'].get('score', 100)
-            st.metric("齿向偏差", f"{helix_score:.0f}分")
-            st.progress(helix_score / 100)
+            color = '#10b981' if helix_score >= 85 else '#f59e0b' if helix_score >= 70 else '#ef4444'
+            st.markdown(f"""
+            <div class="card" style="border-left: 4px solid {color};">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 0.85rem; color: #6b7280;">齿向偏差</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: {color};">{helix_score:.0f}<span style="font-size: 0.9rem; color: #9ca3af;">/100</span></div>
+                    </div>
+                    <div style="font-size: 2rem;">📐</div>
+                </div>
+                <div style="margin-top: 0.5rem; background: #e5e7eb; border-radius: 4px; height: 6px;">
+                    <div style="background: {color}; border-radius: 4px; height: 100%; width: {helix_score}%;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with score_cols[2]:
-            pitch_score = comprehensive_report['pitch_analysis'].get('score', 100)
-            st.metric("周节偏差", f"{pitch_score:.0f}分")
-            st.progress(pitch_score / 100)
+            color = '#10b981' if pitch_score >= 85 else '#f59e0b' if pitch_score >= 70 else '#ef4444'
+            st.markdown(f"""
+            <div class="card" style="border-left: 4px solid {color};">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 0.85rem; color: #6b7280;">周节偏差</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: {color};">{pitch_score:.0f}<span style="font-size: 0.9rem; color: #9ca3af;">/100</span></div>
+                    </div>
+                    <div style="font-size: 2rem;">⚙️</div>
+                </div>
+                <div style="margin-top: 0.5rem; background: #e5e7eb; border-radius: 4px; height: 6px;">
+                    <div style="background: {color}; border-radius: 4px; height: 100%; width: {pitch_score}%;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with score_cols[3]:
-            spectrum_score = comprehensive_report['spectrum_analysis'].get('score', 100)
-            st.metric("频谱分析", f"{spectrum_score:.0f}分")
-            st.progress(spectrum_score / 100)
+            color = '#10b981' if spectrum_score >= 85 else '#f59e0b' if spectrum_score >= 70 else '#ef4444'
+            st.markdown(f"""
+            <div class="card" style="border-left: 4px solid {color};">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 0.85rem; color: #6b7280;">频谱分析</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: {color};">{spectrum_score:.0f}<span style="font-size: 0.9rem; color: #9ca3af;">/100</span></div>
+                    </div>
+                    <div style="font-size: 2rem;">📈</div>
+                </div>
+                <div style="margin-top: 0.5rem; background: #e5e7eb; border-radius: 4px; height: 6px;">
+                    <div style="background: {color}; border-radius: 4px; height: 100%; width: {spectrum_score}%;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # 问题汇总
-        st.markdown("### 📋 问题汇总")
+        st.markdown("---")
+        
+        # ========== 问题诊断 ==========
+        st.markdown("### 🔍 问题诊断")
+        
         if comprehensive_report['issues']:
-            for issue in comprehensive_report['issues']:
-                st.markdown(f"- 🔴 {issue}")
+            # 分类显示问题
+            critical_issues = [i for i in comprehensive_report['issues'] if '🔴' in i]
+            warning_issues = [i for i in comprehensive_report['issues'] if '🟠' in i]
+            info_issues = [i for i in comprehensive_report['issues'] if '🟡' in i]
+            success_issues = [i for i in comprehensive_report['issues'] if '✅' in i]
+            
+            if critical_issues:
+                st.markdown("<div style='font-weight: 600; color: #ef4444; margin-bottom: 0.5rem;'>⚠️ 严重问题</div>", unsafe_allow_html=True)
+                for issue in critical_issues:
+                    st.markdown(f"<div class='issue-critical'>{issue}</div>", unsafe_allow_html=True)
+            
+            if warning_issues:
+                st.markdown("<div style='font-weight: 600; color: #f59e0b; margin-bottom: 0.5rem; margin-top: 1rem;'>⚡ 警告问题</div>", unsafe_allow_html=True)
+                for issue in warning_issues:
+                    st.markdown(f"<div class='issue-warning'>{issue}</div>", unsafe_allow_html=True)
+            
+            if info_issues:
+                st.markdown("<div style='font-weight: 600; color: #06b6d4; margin-bottom: 0.5rem; margin-top: 1rem;'>ℹ️ 提示信息</div>", unsafe_allow_html=True)
+                for issue in info_issues:
+                    st.markdown(f"<div class='issue-info'>{issue}</div>", unsafe_allow_html=True)
+            
+            if success_issues:
+                st.markdown("<div style='font-weight: 600; color: #10b981; margin-bottom: 0.5rem; margin-top: 1rem;'>✅ 正常状态</div>", unsafe_allow_html=True)
+                for issue in success_issues:
+                    st.markdown(f"<div class='issue-success'>{issue}</div>", unsafe_allow_html=True)
         else:
-            st.markdown("- ✅ 未发现明显问题")
+            st.markdown("<div class='issue-success'>✅ 未发现明显问题，齿轮状态良好</div>", unsafe_allow_html=True)
         
-        # 原因分析
-        st.markdown("### 🔍 原因分析")
-        for cause in comprehensive_report['causes']:
+        st.markdown("---")
+        
+        # ========== 原因分析 ==========
+        st.markdown("### 🔬 原因分析")
+        
+        causes = comprehensive_report['causes']
+        for cause in causes:
             st.markdown(f"- {cause}")
         
-        # 改进建议
+        st.markdown("---")
+        
+        # ========== 改进建议 ==========
         st.markdown("### 💡 改进建议")
-        for rec in comprehensive_report['recommendations']:
+        
+        recommendations = comprehensive_report['recommendations']
+        for rec in recommendations:
             st.markdown(f"- {rec}")
         
-        # 详细数据
+        # ========== 详细数据 ==========
         with st.expander("📊 详细分析数据", expanded=False):
             # 齿形数据
             if comprehensive_report['profile_analysis']:
