@@ -288,19 +288,28 @@ st.markdown("""
     
     /* 侧边栏样式 */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1f2937 0%, #111827 100%) !important;
+        background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%) !important;
     }
     
     section[data-testid="stSidebar"] .stMarkdown,
     section[data-testid="stSidebar"] .stRadio > label,
     section[data-testid="stSidebar"] label {
-        color: #d1d5db !important;
+        color: #1e293b !important;
+        font-weight: 500 !important;
+    }
+    
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        color: #1e293b !important;
+        font-weight: 600 !important;
     }
     
     section[data-testid="stSidebar"] .stRadio > div {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.7);
         border-radius: 12px;
         padding: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
     
     section[data-testid="stSidebar"] .stRadio > div > label {
@@ -309,21 +318,27 @@ st.markdown("""
         padding: 0.75rem 1rem;
         margin: 0.25rem 0;
         transition: all 0.2s ease;
+        color: #334155 !important;
+        font-weight: 500 !important;
     }
     
     section[data-testid="stSidebar"] .stRadio > div > label:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(102, 126, 234, 0.1);
+        color: #667eea !important;
     }
     
     section[data-testid="stSidebar"] .stRadio > div > label[data-checked="true"] {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white !important;
+        font-weight: 600 !important;
+        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
     }
     
     section[data-testid="stSidebar"] .stSuccess {
-        background: rgba(16, 185, 129, 0.2);
+        background: rgba(16, 185, 129, 0.1);
         border: 1px solid rgba(16, 185, 129, 0.3);
         border-radius: 8px;
+        color: #059669 !important;
     }
     
     section[data-testid="stSidebar"] .stButton > button {
