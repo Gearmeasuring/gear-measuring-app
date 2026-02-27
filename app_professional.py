@@ -122,12 +122,15 @@ with st.sidebar:
 
     st.markdown("---")
     st.header("📋 功能导航")
-
     page = st.radio(
         "选择功能",
         ['📄 专业报告', '🔍 三截面扭曲数据', '📊 周节详细报表', '📈 单齿分析', '📉 合并曲线', '📊 频谱分析'],
         index=0
     )
+    
+    # 分页状态管理
+    if 'pagination' not in st.session_state:
+        st.session_state.pagination = {'profile_page': 1, 'helix_page': 1}
 
 # 检查是否显示管理员面板
 if st.session_state.get('show_admin', False):
@@ -344,39 +347,10 @@ if uploaded_file is not None:
     if page == '📄 专业报告':
         st.markdown("## Gear Profile/Lead Report")
         
-        st.markdown("### 📋 专业报告生成")
-        
-        # PDF下载按钮
-        if PDF_GENERATOR_AVAILABLE:
-            if st.button("📥 生成完整PDF报告"):
-                with st.spinner("正在生成PDF报告，请稍候..."):
-                    try:
-                        generator = KlingelnbergReportGenerator()
-                        pdf_buffer = generator.generate_full_report(
-                            analyzer,
-                            output_filename=f"gear_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-                        )
-
-                        st.download_button(
-                            label="📥 下载PDF报告",
-                            data=pdf_buffer,
-                            file_name=f"gear_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                            mime="application/pdf"
-                        )
-                        st.success("✅ PDF报告生成成功！包含2页：齿形/齿向报表、周节报表")
-                    except Exception as e:
-                        st.error(f"生成PDF失败: {e}")
-                        import traceback
-                        st.error(traceback.format_exc())
-        else:
-            st.warning("PDF生成器不可用")
-        
-        st.markdown("#### Basic Information")
-        col1, col2 = st.columns(2)
-
-        # 从解析器获取信息
+        # ========== 头部参数表格 ==========
         info = analyzer.reader.info if hasattr(analyzer.reader, 'info') else {}
-
+        
+        col1, col2 = st.columns(2)
         with col1:
             header_data1 = {
                 'Parameter': ['Prog.No.', 'Type', 'Drawing No.', 'Order No.', 'Cust./Mach. No.', 'Loc. of check'],
@@ -393,7 +367,6 @@ if uploaded_file is not None:
 
         with col2:
             if gear_params:
-                # 正确计算基圆直径
                 import math
                 beta = math.radians(abs(gear_params.helix_angle))
                 alpha_n = math.radians(gear_params.pressure_angle)
@@ -420,37 +393,457 @@ if uploaded_file is not None:
             st.table(header_data2)
         
         st.markdown("---")
-        st.markdown("### Gear Profile/Lead Report")
         
-        face_width = abs(b2 - b1) if b1 is not None and b2 is not None else 78
-        profile_length = abs(d2 - d1) if d1 is not None and d2 is not None else 8
+        # ========== 获取齿号数据 ==========
+        profile_teeth_left = sorted(list(profile_data.get('left', {}).keys()), key=tooth_sort_key)
+        profile_teeth_right = sorted(list(profile_data.get('right', {}).keys()), key=tooth_sort_key)
+        helix_teeth_left = sorted(list(helix_data.get('left', {}).keys()), key=tooth_sort_key)
+        helix_teeth_right = sorted(list(helix_data.get('right', {}).keys()), key=tooth_sort_key)
         
-        # 获取所有测量的齿号
-        measured_teeth_profile = set()
-        measured_teeth_helix = set()
-        for side in ['left', 'right']:
-            if side in profile_data:
-                measured_teeth_profile.update(profile_data[side].keys())
-            if side in helix_data:
-                measured_teeth_helix.update(helix_data[side].keys())
+        TEETH_PER_PAGE = 6  # 每页显示6个齿
         
-        # 获取所有测量齿号并排序
-        all_measured_teeth = sorted(list(measured_teeth_profile.union(measured_teeth_helix)), key=tooth_sort_key)
+        # 计算总页数
+        profile_max_teeth = max(len(profile_teeth_left), len(profile_teeth_right))
+        profile_total_pages = max(1, (profile_max_teeth + TEETH_PER_PAGE - 1) // TEETH_PER_PAGE)
+        
+        helix_max_teeth = max(len(helix_teeth_left), len(helix_teeth_right))
+        helix_total_pages = max(1, (helix_max_teeth + TEETH_PER_PAGE - 1) // TEETH_PER_PAGE)
         
         # ========== Profile 齿形分析 ==========
-        st.markdown("#### Profile")
+        st.markdown("### Profile 齿形分析")
         
-        # 获取所有有齿形数据的齿
-        profile_teeth_left = sorted(list(profile_data.get('left', {}).keys()), key=tooth_sort_key, reverse=True)
-        profile_teeth_right = sorted(list(profile_data.get('right', {}).keys()), key=tooth_sort_key)
+        # 齿形分页控制
+        profile_page = st.session_state.pagination.get('profile_page', 1)
         
-        if profile_teeth_left or profile_teeth_right:
-            # 左齿面曲线图
-            if profile_teeth_left:
-                st.markdown("**Left Flank**")
-                # 显示所有齿，每行最多8个
-                n_cols = min(8, len(profile_teeth_left))
-                left_profile_results = []
+        col_prev, col_info, col_next = st.columns([1, 3, 1])
+        with col_prev:
+            if st.button("⬅️ 上一页", key="profile_prev") and profile_page > 1:
+                st.session_state.pagination['profile_page'] = profile_page - 1
+                st.rerun()
+        with col_info:
+            st.markdown(f"**第 {profile_page} / {profile_total_pages} 页**")
+        with col_next:
+            if st.button("➡️ 下一页", key="profile_next") and profile_page < profile_total_pages:
+                st.session_state.pagination['profile_page'] = profile_page + 1
+                st.rerun()
+        
+        # 计算当前页的齿号范围
+        profile_start_idx = (profile_page - 1) * TEETH_PER_PAGE
+        profile_end_idx = profile_start_idx + TEETH_PER_PAGE
+        
+        current_profile_left = profile_teeth_left[profile_start_idx:profile_end_idx]
+        current_profile_right = profile_teeth_right[profile_start_idx:profile_end_idx]
+        
+        # ========== 左右齿形图表并排显示 ==========
+        left_profile_results = []
+        right_profile_results = []
+        
+        # 创建12列：左6个 + 右6个
+        profile_cols = st.columns(12)
+        
+        # 左齿面图表（前6列）
+        for i, tooth_id in enumerate(current_profile_left):
+            with profile_cols[i]:
+                if tooth_id in profile_data.get('left', {}):
+                    tooth_profiles = profile_data['left'][tooth_id]
+                    if tooth_profiles:
+                        helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
+                        best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
+                        values = np.array(tooth_profiles[best_z])
+                        
+                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
+                        y_positions = np.linspace(da, de, len(values))
+                        ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=1.0)
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        
+                        n = len(values)
+                        meas_length = de - da
+                        idx_eval_start = int((d1 - da) / meas_length * (n - 1))
+                        idx_eval_end = int((d2 - da) / meas_length * (n - 1))
+                        
+                        ax.plot(1, y_positions[0], 'v', markersize=6, color='blue')
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=6, color='green')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=6, color='orange')
+                        ax.plot(1, y_positions[-1], '^', markersize=6, color='red')
+                        
+                        ax.set_ylim(da - 1, de + 1)
+                        ax.set_yticks([da, d1, d2, de])
+                        ax.set_yticklabels([f'{da:.1f}', f'{d1:.1f}', f'{d2:.1f}', f'{de:.1f}'], fontsize=7)
+                        ax.set_xlim(0.3, 1.7)
+                        ax.set_xticks([0.5, 1.0, 1.5])
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=7)
+                        ax.grid(True, linestyle=':', linewidth=0.3, color='gray')
+                        ax.set_xlabel(f'{tooth_id}', fontsize=9, fontweight='bold')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                        plt.close(fig)
+                        
+                        F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
+                        if F_a is not None:
+                            left_profile_results.append({
+                                'Tooth': tooth_id,
+                                'fHα': fH_a,
+                                'ffα': ff_a,
+                                'Fα': F_a,
+                                'Ca': Ca
+                            })
+        
+        # 右齿面图表（后6列）
+        for i, tooth_id in enumerate(current_profile_right):
+            with profile_cols[i + 6]:
+                if tooth_id in profile_data.get('right', {}):
+                    tooth_profiles = profile_data['right'][tooth_id]
+                    if tooth_profiles:
+                        helix_mid = (helix_eval.eval_start + helix_eval.eval_end) / 2
+                        best_z = min(tooth_profiles.keys(), key=lambda z: abs(z - helix_mid))
+                        values = np.array(tooth_profiles[best_z])
+                        
+                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
+                        y_positions = np.linspace(da, de, len(values))
+                        ax.plot(values / 50.0 + 1, y_positions, 'r-', linewidth=1.0)
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        
+                        n = len(values)
+                        meas_length = de - da
+                        idx_eval_start = int((d1 - da) / meas_length * (n - 1))
+                        idx_eval_end = int((d2 - da) / meas_length * (n - 1))
+                        
+                        ax.plot(1, y_positions[0], 'v', markersize=6, color='blue')
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=6, color='green')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=6, color='orange')
+                        ax.plot(1, y_positions[-1], '^', markersize=6, color='red')
+                        
+                        ax.set_ylim(da - 1, de + 1)
+                        ax.set_yticks([da, d1, d2, de])
+                        ax.set_yticklabels([f'{da:.1f}', f'{d1:.1f}', f'{d2:.1f}', f'{de:.1f}'], fontsize=7)
+                        ax.set_xlim(0.3, 1.7)
+                        ax.set_xticks([0.5, 1.0, 1.5])
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=7)
+                        ax.grid(True, linestyle=':', linewidth=0.3, color='gray')
+                        ax.set_xlabel(f'{tooth_id}', fontsize=9, fontweight='bold')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                        plt.close(fig)
+                        
+                        F_a, fH_a, ff_a, Ca = calc_profile_deviations(values)
+                        if F_a is not None:
+                            right_profile_results.append({
+                                'Tooth': tooth_id,
+                                'fHα': fH_a,
+                                'ffα': ff_a,
+                                'Fα': F_a,
+                                'Ca': Ca
+                            })
+        
+        # ========== 齿形偏差数据表 ==========
+        st.markdown("#### 齿形偏差数据表")
+        
+        # 左齿面数据表
+        if left_profile_results:
+            st.markdown("**Left Flank 左齿面**")
+            df_left = pd.DataFrame(left_profile_results)
+            
+            mean_row = {'Tooth': 'Mean'}
+            max_row = {'Tooth': 'Max'}
+            for col in ['fHα', 'ffα', 'Fα', 'Ca']:
+                mean_row[col] = df_left[col].mean()
+                max_row[col] = df_left[col].max()
+            mean_row['fHαm'] = df_left['fHα'].mean()
+            max_row['fHαm'] = np.nan
+            df_left['fHαm'] = np.nan
+            
+            tol_row = {'Tooth': f'Lim.{DEFAULT_QUALITY}'}
+            for col, tol_code in [('fHα', 'fHa'), ('ffα', 'ffa'), ('Fα', 'Fa')]:
+                tol_val = get_tolerance('profile', tol_code, DEFAULT_QUALITY)
+                tol_row[col] = f'±{int(tol_val)}' if tol_val else ''
+            tol_row['Ca'] = ''
+            tol_row['fHαm'] = ''
+            
+            for col, tol_code in [('fHα', 'fHa'), ('ffα', 'ffa'), ('Fα', 'Fa')]:
+                max_val = max_row[col]
+                if max_val is not None and not np.isnan(max_val):
+                    quality = calculate_quality_grade(max_val, 'profile', tol_code)
+                    if quality:
+                        max_row[col] = f"{max_val:.2f} Q{quality}"
+            
+            df_left = pd.concat([df_left, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
+            
+            def format_value(x):
+                if pd.isna(x):
+                    return ''
+                if isinstance(x, str):
+                    return x
+                if isinstance(x, (int, float)):
+                    return f'{x:.2f}'
+                return str(x)
+            
+            df_display = df_left[['Tooth', 'fHα', 'fHαm', 'ffα', 'Fα', 'Ca']].copy()
+            for col in ['fHα', 'fHαm', 'ffα', 'Fα', 'Ca']:
+                df_display[col] = df_display[col].apply(format_value)
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
+        
+        # 右齿面数据表
+        if right_profile_results:
+            st.markdown("**Right Flank 右齿面**")
+            df_right = pd.DataFrame(right_profile_results)
+            
+            mean_row = {'Tooth': 'Mean'}
+            max_row = {'Tooth': 'Max'}
+            for col in ['fHα', 'ffα', 'Fα', 'Ca']:
+                mean_row[col] = df_right[col].mean()
+                max_row[col] = df_right[col].max()
+            mean_row['fHαm'] = df_right['fHα'].mean()
+            max_row['fHαm'] = np.nan
+            df_right['fHαm'] = np.nan
+            
+            tol_row = {'Tooth': f'Lim.{DEFAULT_QUALITY}'}
+            for col, tol_code in [('fHα', 'fHa'), ('ffα', 'ffa'), ('Fα', 'Fa')]:
+                tol_val = get_tolerance('profile', tol_code, DEFAULT_QUALITY)
+                tol_row[col] = f'±{int(tol_val)}' if tol_val else ''
+            tol_row['Ca'] = ''
+            tol_row['fHαm'] = ''
+            
+            for col, tol_code in [('fHα', 'fHa'), ('ffα', 'ffa'), ('Fα', 'Fa')]:
+                max_val = max_row[col]
+                if max_val is not None and not np.isnan(max_val):
+                    quality = calculate_quality_grade(max_val, 'profile', tol_code)
+                    if quality:
+                        max_row[col] = f"{max_val:.2f} Q{quality}"
+            
+            df_right = pd.concat([df_right, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
+            
+            df_display = df_right[['Tooth', 'fHα', 'fHαm', 'ffα', 'Fα', 'Ca']].copy()
+            for col in ['fHα', 'fHαm', 'ffα', 'Fα', 'Ca']:
+                df_display[col] = df_display[col].apply(format_value)
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
+        
+        st.markdown("---")
+        
+        # ========== Helix 齿向分析 ==========
+        st.markdown("### Helix 齿向分析")
+        
+        # 齿向分页控制
+        helix_page = st.session_state.pagination.get('helix_page', 1)
+        
+        col_prev, col_info, col_next = st.columns([1, 3, 1])
+        with col_prev:
+            if st.button("⬅️ 上一页", key="helix_prev") and helix_page > 1:
+                st.session_state.pagination['helix_page'] = helix_page - 1
+                st.rerun()
+        with col_info:
+            st.markdown(f"**第 {helix_page} / {helix_total_pages} 页**")
+        with col_next:
+            if st.button("➡️ 下一页", key="helix_next") and helix_page < helix_total_pages:
+                st.session_state.pagination['helix_page'] = helix_page + 1
+                st.rerun()
+        
+        # 计算当前页的齿号范围
+        helix_start_idx = (helix_page - 1) * TEETH_PER_PAGE
+        helix_end_idx = helix_start_idx + TEETH_PER_PAGE
+        
+        current_helix_left = helix_teeth_left[helix_start_idx:helix_end_idx]
+        current_helix_right = helix_teeth_right[helix_start_idx:helix_end_idx]
+        
+        # ========== 左右齿向图表并排显示 ==========
+        left_helix_results = []
+        right_helix_results = []
+        
+        # 创建12列：左6个 + 右6个
+        helix_cols = st.columns(12)
+        
+        # 左齿面图表（前6列）
+        for i, tooth_id in enumerate(current_helix_left):
+            with helix_cols[i]:
+                if tooth_id in helix_data.get('left', {}):
+                    tooth_helix = helix_data['left'][tooth_id]
+                    if tooth_helix:
+                        profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
+                        best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
+                        values = np.array(tooth_helix[best_d])
+                        
+                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
+                        y_positions = np.linspace(ba, be, len(values))
+                        ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=1.0)
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        
+                        n = len(values)
+                        meas_length = be - ba
+                        idx_eval_start = int((b1 - ba) / meas_length * (n - 1))
+                        idx_eval_end = int((b2 - ba) / meas_length * (n - 1))
+                        
+                        ax.plot(1, y_positions[0], 'v', markersize=6, color='blue')
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=6, color='green')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=6, color='orange')
+                        ax.plot(1, y_positions[-1], '^', markersize=6, color='red')
+                        
+                        ax.set_ylim(ba - 1, be + 1)
+                        ax.set_yticks([ba, b1, b2, be])
+                        ax.set_yticklabels([f'{ba:.1f}', f'{b1:.1f}', f'{b2:.1f}', f'{be:.1f}'], fontsize=7)
+                        ax.set_xlim(0.3, 1.7)
+                        ax.set_xticks([0.5, 1.0, 1.5])
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=7)
+                        ax.grid(True, linestyle=':', linewidth=0.3, color='gray')
+                        ax.set_xlabel(f'{tooth_id}', fontsize=9, fontweight='bold')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                        plt.close(fig)
+                        
+                        F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
+                        if F_b is not None:
+                            left_helix_results.append({
+                                'Tooth': tooth_id,
+                                'fHβ': fH_b,
+                                'ffβ': ff_b,
+                                'Fβ': F_b,
+                                'Cb': Cb
+                            })
+        
+        # 右齿面图表（后6列）
+        for i, tooth_id in enumerate(current_helix_right):
+            with helix_cols[i + 6]:
+                if tooth_id in helix_data.get('right', {}):
+                    tooth_helix = helix_data['right'][tooth_id]
+                    if tooth_helix:
+                        profile_mid = (profile_eval.eval_start + profile_eval.eval_end) / 2
+                        best_d = min(tooth_helix.keys(), key=lambda d: abs(d - profile_mid))
+                        values = np.array(tooth_helix[best_d])
+                        
+                        fig, ax = plt.subplots(figsize=(1.8, 4.5))
+                        y_positions = np.linspace(ba, be, len(values))
+                        ax.plot(values / 50.0 + 1, y_positions, 'k-', linewidth=1.0)
+                        ax.axvline(x=1, color='black', linestyle='-', linewidth=0.5)
+                        
+                        n = len(values)
+                        meas_length = be - ba
+                        idx_eval_start = int((b1 - ba) / meas_length * (n - 1))
+                        idx_eval_end = int((b2 - ba) / meas_length * (n - 1))
+                        
+                        ax.plot(1, y_positions[0], 'v', markersize=6, color='blue')
+                        ax.plot(1, y_positions[idx_eval_start], 'v', markersize=6, color='green')
+                        ax.plot(1, y_positions[idx_eval_end], '^', markersize=6, color='orange')
+                        ax.plot(1, y_positions[-1], '^', markersize=6, color='red')
+                        
+                        ax.set_ylim(ba - 1, be + 1)
+                        ax.set_yticks([ba, b1, b2, be])
+                        ax.set_yticklabels([f'{ba:.1f}', f'{b1:.1f}', f'{b2:.1f}', f'{be:.1f}'], fontsize=7)
+                        ax.set_xlim(0.3, 1.7)
+                        ax.set_xticks([0.5, 1.0, 1.5])
+                        ax.set_xticklabels(['-25', '0', '+25'], fontsize=7)
+                        ax.grid(True, linestyle=':', linewidth=0.3, color='gray')
+                        ax.set_xlabel(f'{tooth_id}', fontsize=9, fontweight='bold')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                        plt.close(fig)
+                        
+                        F_b, fH_b, ff_b, Cb = calc_lead_deviations(values)
+                        if F_b is not None:
+                            right_helix_results.append({
+                                'Tooth': tooth_id,
+                                'fHβ': fH_b,
+                                'ffβ': ff_b,
+                                'Fβ': F_b,
+                                'Cb': Cb
+                            })
+        
+        # ========== 齿向偏差数据表 ==========
+        st.markdown("#### 齿向偏差数据表")
+        
+        # 左齿面数据表
+        if left_helix_results:
+            st.markdown("**Left Flank 左齿面**")
+            df_left_h = pd.DataFrame(left_helix_results)
+            
+            mean_row = {'Tooth': 'Mean'}
+            max_row = {'Tooth': 'Max'}
+            for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']:
+                mean_row[col] = df_left_h[col].mean()
+                max_row[col] = df_left_h[col].max()
+            mean_row['fHβm'] = df_left_h['fHβ'].mean()
+            max_row['fHβm'] = np.nan
+            df_left_h['fHβm'] = np.nan
+            
+            tol_row = {'Tooth': f'Lim.{DEFAULT_QUALITY}'}
+            for col, tol_code in [('fHβ', 'fHb'), ('ffβ', 'ffb'), ('Fβ', 'Fb')]:
+                tol_val = get_tolerance('lead', tol_code, DEFAULT_QUALITY)
+                tol_row[col] = f'±{int(tol_val)}' if tol_val else ''
+            tol_row['Cb'] = ''
+            tol_row['fHβm'] = ''
+            
+            for col, tol_code in [('fHβ', 'fHb'), ('ffβ', 'ffb'), ('Fβ', 'Fb')]:
+                max_val = max_row[col]
+                if max_val is not None and not np.isnan(max_val):
+                    quality = calculate_quality_grade(max_val, 'lead', tol_code)
+                    if quality:
+                        max_row[col] = f"{max_val:.2f} Q{quality}"
+            
+            df_left_h = pd.concat([df_left_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
+            
+            df_display = df_left_h[['Tooth', 'fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']].copy()
+            for col in ['fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']:
+                df_display[col] = df_display[col].apply(format_value)
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
+        
+        # 右齿面数据表
+        if right_helix_results:
+            st.markdown("**Right Flank 右齿面**")
+            df_right_h = pd.DataFrame(right_helix_results)
+            
+            mean_row = {'Tooth': 'Mean'}
+            max_row = {'Tooth': 'Max'}
+            for col in ['fHβ', 'ffβ', 'Fβ', 'Cb']:
+                mean_row[col] = df_right_h[col].mean()
+                max_row[col] = df_right_h[col].max()
+            mean_row['fHβm'] = df_right_h['fHβ'].mean()
+            max_row['fHβm'] = np.nan
+            df_right_h['fHβm'] = np.nan
+            
+            tol_row = {'Tooth': f'Lim.{DEFAULT_QUALITY}'}
+            for col, tol_code in [('fHβ', 'fHb'), ('ffβ', 'ffb'), ('Fβ', 'Fb')]:
+                tol_val = get_tolerance('lead', tol_code, DEFAULT_QUALITY)
+                tol_row[col] = f'±{int(tol_val)}' if tol_val else ''
+            tol_row['Cb'] = ''
+            tol_row['fHβm'] = ''
+            
+            for col, tol_code in [('fHβ', 'fHb'), ('ffβ', 'ffb'), ('Fβ', 'Fb')]:
+                max_val = max_row[col]
+                if max_val is not None and not np.isnan(max_val):
+                    quality = calculate_quality_grade(max_val, 'lead', tol_code)
+                    if quality:
+                        max_row[col] = f"{max_val:.2f} Q{quality}"
+            
+            df_right_h = pd.concat([df_right_h, pd.DataFrame([mean_row]), pd.DataFrame([max_row]), pd.DataFrame([tol_row])], ignore_index=True)
+            
+            df_display = df_right_h[['Tooth', 'fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']].copy()
+            for col in ['fHβ', 'fHβm', 'ffβ', 'Fβ', 'Cb']:
+                df_display[col] = df_display[col].apply(format_value)
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
+        
+        # PDF下载按钮
+        st.markdown("---")
+        st.markdown("### 📋 PDF报告生成")
+        if PDF_GENERATOR_AVAILABLE:
+            if st.button("📥 生成完整PDF报告"):
+                with st.spinner("正在生成PDF报告，请稍候..."):
+                    try:
+                        generator = KlingelnbergReportGenerator()
+                        pdf_buffer = generator.generate_full_report(
+                            analyzer,
+                            output_filename=f"gear_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                        )
+
+                        st.download_button(
+                            label="📥 下载PDF报告",
+                            data=pdf_buffer,
+                            file_name=f"gear_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                            mime="application/pdf"
+                        )
+                        st.success("✅ PDF报告生成成功！")
+                    except Exception as e:
+                        st.error(f"生成PDF失败: {e}")
+        else:
+            st.warning("PDF生成器不可用")
+    
+    elif page == '📊 周节详细报表':
                 
                 for i, tooth_id in enumerate(profile_teeth_left):
                     if i % n_cols == 0:
