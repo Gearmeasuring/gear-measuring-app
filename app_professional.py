@@ -1974,30 +1974,42 @@ if uploaded_file is not None:
                 amplitudes = [c.amplitude for c in sorted_components]
 
                 # 根据实际数据自动计算极限曲线参数
-                # 目标：约80%的频谱幅值在公差范围内
                 if amplitudes and orders:
                     max_amp = max(amplitudes)
                     avg_order = sum(orders) / len(orders)
-                    
-                    # 设置N0和K为固定值
                     N0_auto = 0.6
                     K_auto = 2.8
-                    
-                    # 计算R，使得在平均阶次处的公差约为最大幅值的1.2倍
-                    # tolerance = R / ((O-1)^N), 其中 N = N0 + K/O
                     O_ref = max(avg_order, 2)
                     N_ref = N0_auto + K_auto / O_ref
                     R_auto = max_amp * 1.2 * ((O_ref - 1) ** N_ref)
-                    
-                    # 确保R在合理范围内
                     R_auto = max(0.0001, min(R_auto, 1.0))
                 else:
                     R_auto = 0.0039
                     N0_auto = 0.6
                     K_auto = 2.8
 
+                # 显示极限曲线参数并可调节
+                st.markdown("**Limit Curve Parameters**")
+                st.markdown("*Formula: Tolerance = R / (O-1)^(N₀+K/O)*")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    R_input = st.number_input("R (mm)", min_value=0.0001, max_value=1.0, value=float(R_auto), step=0.0001, format="%.4f", key=f"R_{name}")
+                with col2:
+                    N0_input = st.number_input("N₀", min_value=0.0, max_value=5.0, value=float(N0_auto), step=0.1, format="%.1f", key=f"N0_{name}")
+                with col3:
+                    K_input = st.number_input("K", min_value=0.0, max_value=10.0, value=float(K_auto), step=0.1, format="%.1f", key=f"K_{name}")
+
+                # 使用用户输入的参数
+                R = R_input
+                N0 = N0_input
+                K = K_input
+
                 if orders and amplitudes:
-                    colors_bar = ['red' if o >= ze else 'steelblue' for o in orders]
+                    # 计算每个阶次的极限值
+                    tolerance_values = calculate_tolerance_curve(orders, R, N0, K)
+                    
+                    # 根据是否超出极限设置颜色：蓝色（未超出），红色（超出）
+                    colors_bar = ['red' if amp > tol else 'steelblue' for amp, tol in zip(amplitudes, tolerance_values)]
                     ax.bar(orders, amplitudes, color=colors_bar, alpha=0.7, width=3, label='Amplitude')
 
                     # 标识 ZE 及其倍数
@@ -2008,17 +2020,16 @@ if uploaded_file is not None:
                         else:
                             ax.axvline(x=ze_mult, color='orange', linestyle=':', linewidth=1.5, alpha=0.7, label=f'{i}×ZE={ze_mult}')
 
-                    # 绘制极限曲线（使用同一Y轴）
+                    # 绘制极限曲线（橘黄色）
                     order_range = np.linspace(2, max(orders) + 20, 200)
-                    tolerance_curve = calculate_tolerance_curve(order_range, R_auto, N0_auto, K_auto)
-                    ax.plot(order_range, tolerance_curve, 'r--', linewidth=2, label='Tolerance Limit')
+                    tolerance_curve = calculate_tolerance_curve(order_range, R, N0, K)
+                    ax.plot(order_range, tolerance_curve, color='darkorange', linewidth=2.5, label='Tolerance Limit', linestyle='-')
 
-                    # 设置Y轴范围（同时考虑幅值和极限曲线）
+                    # 设置Y轴范围
                     max_amplitude = max(amplitudes) if amplitudes else 1
                     max_tolerance = max(tolerance_curve) if tolerance_curve else 1
                     y_max = max(max_amplitude, max_tolerance) * 1.2
                     ax.set_ylim(0, y_max)
-
                     ax.set_xlim(0, max(orders) + 20)
 
                 ax.set_xlabel('Order')
@@ -2026,16 +2037,6 @@ if uploaded_file is not None:
                 ax.set_title(f'{display_name} - Spectrum (ZE={ze})')
                 ax.legend(loc='upper right')
                 ax.grid(True, alpha=0.3)
-
-                # 在图表右上角添加极限曲线参数说明
-                ax.text(0.98, 0.98, f'Limit Curve Parameters (Auto):\n'
-                                    f'R = {R_auto:.4f} mm\n'
-                                    f'N₀ = {N0_auto:.1f}\n'
-                                    f'K = {K_auto:.1f}\n'
-                                    f'Formula: R/(O-1)^(N₀+K/O)',
-                        transform=ax.transAxes, fontsize=9,
-                        verticalalignment='top', horizontalalignment='right',
-                        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
                 st.pyplot(fig)
                 plt.close(fig)
