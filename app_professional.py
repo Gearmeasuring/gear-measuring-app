@@ -1955,6 +1955,25 @@ if uploaded_file is not None:
 
                 st.markdown("#### Spectrum Chart")
 
+                # 极限曲线参数设置
+                R = 50  # 参考幅值 (μm)
+                N0 = 1.0  # 基础指数
+                K = 0.5  # 修正系数
+                O_ref = 2  # 参考阶次
+
+                # 计算极限曲线
+                def calculate_tolerance_curve(orders, R, N0, K, O_ref):
+                    """计算极限曲线公差值"""
+                    tolerances = []
+                    for O in orders:
+                        if O <= 1:
+                            tolerances.append(R)
+                        else:
+                            N = N0 + K / O
+                            tolerance = R / ((O - 1) ** N)
+                            tolerances.append(tolerance)
+                    return tolerances
+
                 fig, ax = plt.subplots(figsize=(12, 5))
                 sorted_components = sorted(result.spectrum_components[:20], key=lambda c: c.order)
                 orders = [c.order for c in sorted_components]
@@ -1971,13 +1990,29 @@ if uploaded_file is not None:
                             ax.axvline(x=ze_mult, color='green', linestyle='--', linewidth=2, label=f'ZE={ze}')
                         else:
                             ax.axvline(x=ze_mult, color='orange', linestyle=':', linewidth=1.5, alpha=0.7, label=f'{i}×ZE={ze_mult}')
+
+                    # 绘制极限曲线
+                    order_range = np.linspace(1.1, max(orders) + 20, 200)
+                    tolerance_curve = calculate_tolerance_curve(order_range, R, N0, K, O_ref)
+                    ax.plot(order_range, tolerance_curve, 'r-', linewidth=2, label='Tolerance Limit', linestyle='--')
+
                     ax.set_xlim(0, max(orders) + 20)
 
                 ax.set_xlabel('Order')
                 ax.set_ylabel('Amplitude (μm)')
                 ax.set_title(f'{display_name} - Spectrum (ZE={ze})')
-                ax.legend()
+                ax.legend(loc='upper right')
                 ax.grid(True, alpha=0.3)
+
+                # 在图表右侧添加极限曲线参数说明
+                ax.text(1.02, 0.98, f'Limit Curve Parameters:\n'
+                                    f'R = {R} μm\n'
+                                    f'N₀ = {N0}\n'
+                                    f'K = {K}\n'
+                                    f'Formula: R/(O-1)^(N₀+K/O)',
+                        transform=ax.transAxes, fontsize=9,
+                        verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
                 st.pyplot(fig)
                 plt.close(fig)
     
