@@ -2006,14 +2006,28 @@ if uploaded_file is not None:
                 amplitudes = [c.amplitude for c in sorted_components]
 
                 # 根据实际数据自动计算极限曲线参数
+                # 目标：公差曲线在ZE处高于主导阶次的幅值
                 if amplitudes and orders:
-                    max_amp = max(amplitudes)
-                    avg_order = sum(orders) / len(orders)
                     N0_auto = 0.6
                     K_auto = 2.8
-                    O_ref = max(avg_order, 2)
-                    N_ref = N0_auto + K_auto / O_ref
-                    R_auto = max_amp * 1.2 * ((O_ref - 1) ** N_ref)
+                    
+                    # 找到ZE附近的幅值（ZE ± 5范围内的最大幅值）
+                    ze_range = 5
+                    ze_amplitudes = [amp for o, amp in zip(orders, amplitudes) if abs(o - ze) <= ze_range]
+                    
+                    if ze_amplitudes:
+                        max_amp_at_ze = max(ze_amplitudes)
+                        # 计算R，使得在ZE处的公差为ZE处最大幅值的1.3倍
+                        # tolerance = R / ((ZE-1)^N), 其中 N = N0 + K/ZE
+                        N_at_ze = N0_auto + K_auto / ze
+                        R_auto = max_amp_at_ze * 1.3 * ((ze - 1) ** N_at_ze)
+                    else:
+                        # 如果没有ZE附近的数据，使用全局最大幅值
+                        max_amp = max(amplitudes)
+                        O_ref = max(sum(orders) / len(orders), 2)
+                        N_ref = N0_auto + K_auto / O_ref
+                        R_auto = max_amp * 1.2 * ((O_ref - 1) ** N_ref)
+                    
                     R_auto = max(0.0001, min(R_auto, 1.0))
                 else:
                     R_auto = 0.0039
