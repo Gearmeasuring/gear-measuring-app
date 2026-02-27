@@ -1955,10 +1955,15 @@ if uploaded_file is not None:
 
                 st.markdown("#### Spectrum Chart")
 
-                # 极限曲线参数设置
-                R = 50  # 参考幅值 (μm)
-                N0 = 1.0  # 基础指数
-                K = 0.5  # 修正系数
+                # 极限曲线参数设置 - 可调节
+                st.markdown("**Limiting Curve Parameters**")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    R = st.number_input("R (mm)", min_value=0.0001, max_value=1.0, value=0.0039, step=0.0001, format="%.4f", key=f"R_{name}")
+                with col2:
+                    N0 = st.number_input("N₀", min_value=0.0, max_value=5.0, value=0.6, step=0.1, format="%.1f", key=f"N0_{name}")
+                with col3:
+                    K = st.number_input("K", min_value=0.0, max_value=10.0, value=2.8, step=0.1, format="%.1f", key=f"K_{name}")
 
                 # 计算极限曲线
                 def calculate_tolerance_curve(orders, R, N0, K):
@@ -2001,7 +2006,7 @@ if uploaded_file is not None:
                     order_range = np.linspace(2, max(orders) + 20, 200)
                     tolerance_curve = calculate_tolerance_curve(order_range, R, N0, K)
                     ax2.plot(order_range, tolerance_curve, 'r--', linewidth=2, label='Tolerance Limit')
-                    ax2.set_ylabel('Tolerance (μm)', color='red')
+                    ax2.set_ylabel('Tolerance (mm)', color='red')
                     ax2.tick_params(axis='y', labelcolor='red')
                     
                     # 设置右Y轴范围
@@ -2025,9 +2030,9 @@ if uploaded_file is not None:
 
                 # 在图表右侧添加极限曲线参数说明
                 ax1.text(1.15, 0.98, f'Limit Curve Parameters:\n'
-                                    f'R = {R} μm\n'
-                                    f'N₀ = {N0}\n'
-                                    f'K = {K}\n'
+                                    f'R = {R:.4f} mm\n'
+                                    f'N₀ = {N0:.1f}\n'
+                                    f'K = {K:.1f}\n'
                                     f'Formula: R/(O-1)^(N₀+K/O)',
                         transform=ax1.transAxes, fontsize=9,
                         verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
