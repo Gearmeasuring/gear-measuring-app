@@ -2020,13 +2020,18 @@ if uploaded_file is not None:
                     # 注册中文字体
                     chinese_font = 'Helvetica'
                     font_paths = [
+                        os.path.join(script_dir, 'fonts', 'wqy-microhei.ttc'),  # 项目字体目录 - 文泉驿微米黑
                         os.path.join(script_dir, 'fonts', 'NotoSansSC-Regular.otf'),  # 项目字体目录
+                        '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',  # 系统文泉驿微米黑
+                        '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',  # 文泉驿正黑
                         '/usr/share/fonts/truetype/noto/NotoSansSC-Regular.otf',  # Linux系统字体
-                        '/app/fonts/NotoSansSC-Regular.otf',  # Streamlit Cloud路径
+                        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',  # Noto CJK字体
+                        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',  # DejaVu
                         'simhei.ttf',  # Windows黑体
                     ]
                     
                     font_loaded = False
+                    font_error = ""
                     for font_path in font_paths:
                         if os.path.exists(font_path):
                             try:
@@ -2035,10 +2040,11 @@ if uploaded_file is not None:
                                 font_loaded = True
                                 break
                             except Exception as e:
+                                font_error = str(e)
                                 continue
                     
                     if not font_loaded:
-                        st.warning("中文字体加载失败，PDF将使用英文字体显示")
+                        st.warning(f"中文字体加载失败，PDF将使用英文字体显示。错误: {font_error}")
                     
                     # 创建PDF
                     pdf_buffer = io.BytesIO()
