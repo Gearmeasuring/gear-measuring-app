@@ -641,6 +641,75 @@ st.markdown("""
     [data-testid="stSidebar"] .stHeader {
         margin-bottom: 0.2rem !important;
     }
+    
+    /* 主界面紧凑布局 */
+    .main .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    .main h1 {
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
+        font-size: 1.8rem !important;
+    }
+    
+    .main h2 {
+        margin-top: 0.4rem !important;
+        margin-bottom: 0.4rem !important;
+        font-size: 1.4rem !important;
+    }
+    
+    .main h3 {
+        margin-top: 0.3rem !important;
+        margin-bottom: 0.3rem !important;
+        font-size: 1.1rem !important;
+    }
+    
+    .main .stMarkdown {
+        margin-bottom: 0.3rem !important;
+    }
+    
+    .main hr {
+        margin: 0.4rem 0 !important;
+    }
+    
+    .main .stMetric {
+        margin-bottom: 0.3rem !important;
+    }
+    
+    .main .stMetric label {
+        font-size: 0.85rem !important;
+    }
+    
+    .main .stMetric [data-testid="stMetricValue"] {
+        font-size: 1.5rem !important;
+    }
+    
+    .main .stDataFrame {
+        margin-bottom: 0.3rem !important;
+    }
+    
+    .main .stExpander {
+        margin-bottom: 0.3rem !important;
+    }
+    
+    .main .stColumns {
+        gap: 0.5rem !important;
+    }
+    
+    .main .stTabs {
+        margin-bottom: 0.3rem !important;
+    }
+    
+    .main .element-container {
+        margin-bottom: 0.3rem !important;
+    }
+    
+    .main .stAlert {
+        margin-bottom: 0.3rem !important;
+        padding: 0.5rem !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
