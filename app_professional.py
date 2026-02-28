@@ -3766,8 +3766,8 @@ if uploaded_file is not None:
                 }), use_container_width=True, hide_index=True)
     
     elif page == '🗺️ 齿面拓普图':
-        st.markdown("## 🗺️ Tooth Surface TOPOGRAFIE")
-        st.markdown("### Tooth Surface Deviation Heatmap Analysis")
+        st.markdown("## 🗺️ 齿面TOPOGRAFIE拓普图")
+        st.markdown("### 齿面偏差热力图分析")
         
         # 解析TOPOGRAFIE数据
         def parse_topografie_data(file_path):
@@ -3885,7 +3885,7 @@ if uploaded_file is not None:
             
             return fig, ax
         
-        with st.spinner("Parsing TOPOGRAFIE data..."):
+        with st.spinner("正在解析TOPOGRAFIE数据..."):
             topografie_data = parse_topografie_data(temp_path)
         
         col1, col2 = st.columns(2)
@@ -3895,10 +3895,10 @@ if uploaded_file is not None:
             profiles = topografie_data[side]['profiles']
             
             with [col1, col2][idx]:
-                st.markdown(f"### {side_name}")
+                st.markdown(f"### {'右齿面' if side == 'rechts' else '左齿面'}")
                 
                 if profiles:
-                    st.markdown(f"**Data Statistics:** Profil Count: {len(profiles)}, z Range: {profiles[0]['position']:.1f}-{profiles[-1]['position']:.1f} mm")
+                    st.markdown(f"**数据统计:** Profil数量: {len(profiles)}, z范围: {profiles[0]['position']:.1f}-{profiles[-1]['position']:.1f} mm")
                     
                     data_matrix, z_positions, n_points = create_topography_map(topografie_data, side)
                     
@@ -3907,28 +3907,28 @@ if uploaded_file is not None:
                         st.pyplot(fig)
                         plt.close(fig)
                         
-                        st.markdown(f"**Deviation Range:**")
+                        st.markdown(f"**偏差范围:**")
                         col_a, col_b, col_c, col_d = st.columns(4)
                         with col_a:
-                            st.metric("Min", f"{np.min(data_matrix):.2f} µm")
+                            st.metric("最小值", f"{np.min(data_matrix):.2f} µm")
                         with col_b:
-                            st.metric("Max", f"{np.max(data_matrix):.2f} µm")
+                            st.metric("最大值", f"{np.max(data_matrix):.2f} µm")
                         with col_c:
-                            st.metric("Mean", f"{np.mean(data_matrix):.2f} µm")
+                            st.metric("平均值", f"{np.mean(data_matrix):.2f} µm")
                         with col_d:
-                            st.metric("Std Dev", f"{np.std(data_matrix):.2f} µm")
+                            st.metric("标准差", f"{np.std(data_matrix):.2f} µm")
                 else:
-                    st.warning(f"No TOPOGRAFIE data found for {side_name}")
+                    st.warning(f"未找到{'右齿面' if side == 'rechts' else '左齿面'}的TOPOGRAFIE数据")
         
         st.markdown("---")
-        st.markdown("### 📖 TOPOGRAFIE Guide")
+        st.markdown("### 📖 拓普图说明")
         st.info("""
-        **Tooth Surface TOPOGRAFIE** shows the deviation distribution across the entire tooth surface:
-        - **X-axis**: Profile direction (from root to tip)
-        - **Y-axis**: Lead direction (from one end to another)
-        - **Color**: Deviation values (blue = negative, red = positive)
+        **齿面TOPOGRAFIE拓普图** 显示整个齿面的偏差分布情况：
+        - **X轴**: 齿高方向（从齿根到齿顶）
+        - **Y轴**: 齿宽方向（从一端到另一端）
+        - **颜色**: 偏差值（蓝色=负偏差，红色=正偏差）
         
-        The topography map helps visualize machining error distribution and identify systematic deviations and local defects.
+        通过拓普图可以直观地看到齿面的加工误差分布，识别系统性偏差和局部缺陷。
         """)
     
     elif page == '🤖 AI综合分析报告':
