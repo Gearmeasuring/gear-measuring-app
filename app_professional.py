@@ -4073,6 +4073,247 @@ if uploaded_file is not None:
                     st.warning(f"未找到{'右齿面' if side == 'rechts' else '左齿面'}的TOPOGRAFIE数据")
         
         st.markdown("---")
+        st.markdown("### 📊 波纹度分析 (Waviness Analysis)")
+        
+        # 波纹分析函数
+        def analyze_waviness(data_matrix, z_positions, gear_params):
+            from scipy import fft
+            
+            results = {
+                'profile_wavelengths': [],
+                'lead_wavelengths': [],
+                'profile_spectrum': None,
+                'lead_spectrum': None,
+                'dominant_orders': [],
+                'waviness_helix_angle': None
+            }
+            
+            n_profiles, n_points = data_matrix.shape
+            
+            # Profile方向FFT分析
+            avg_profile = np.mean(data_matrix, axis=0)
+            profile_fft = fft.fft(avg_profile)
+            profile_freq = fft.fftfreq(n_points)
+            profile_magnitude = np.abs(profile_fft[:n_points//2])
+            
+            # Lead方向FFT分析
+            avg_lead = np.mean(data_matrix, axis=1)
+            lead_fft = fft.fft(avg_lead)
+            lead_freq = fft.fftfreq(n_profiles)
+            lead_magnitude = np.abs(lead_fft[:n_profiles//2])
+            
+            results['profile_spectrum'] = (profile_freq[:n_points//2], profile_magnitude)
+            results['lead_spectrum'] = (lead_freq[:n_profiles//2], lead_magnitude)
+            
+            # 找主导阶次
+            profile_peaks = np.argsort(profile_magnitude[1:])[::-1][:5] + 1
+            lead_peaks = np.argsort(lead_magnitude[1:])[::-1][:5] + 1
+            
+            results['dominant_orders'] = {
+                'profile': profile_peaks.tolist(),
+                'lead': lead_peaks.tolist()
+            }
+            
+            # 计算波纹螺旋角
+            if gear_params and len(profile_peaks) > 0 and len(lead_peaks) > 0:
+                Lp = n_points / profile_peaks[0] if profile_peaks[0] > 0 else n_points
+                Lh = n_profiles / lead_peaks[0] if lead_peaks[0] > 0 else n_profiles
+                
+                if Lh > 0:
+                    beta_w = np.arctan(Lp / Lh)
+                    results['waviness_helix_angle'] = np.degrees(beta_w)
+            
+            return results
+        
+        # 执行波纹分析
+        try:
+            from scipy import fft
+            
+            for idx, side in enumerate(['rechts', 'links']):
+                profiles = topografie_data[side]['profiles']
+                
+                if profiles:
+                    data_matrix, z_positions, n_points = create_topography_map(topografie_data, side)
+                    
+                    if data_matrix is not None:
+                        side_name = '右齿面' if side == 'rechts' else '左齿面'
+                        
+                        with [col1, col2][idx]:
+                            st.markdown(f"**{side_name}波纹分析:**")
+                            
+                            waviness_results = analyze_waviness(data_matrix, z_positions, gear_params)
+                            
+                            # 显示主导阶次
+                            if waviness_results['dominant_orders']:
+                                st.markdown("**主导阶次 (Dominant Orders):**")
+                                col_p, col_l = st.columns(2)
+                                with col_p:
+                                    st.caption("Profile方向:")
+                                    orders_p = waviness_results['dominant_orders']['profile'][:3]
+                                    st.write(f"  阶次: {orders_p}")
+                                with col_l:
+                                    st.caption("Lead方向:")
+                                    orders_l = waviness_results['dominant_orders']['lead'][:3]
+                                    st.write(f"  阶次: {orders_l}")
+                            
+                            # 显示波纹螺旋角
+                            if waviness_results['waviness_helix_angle']:
+                                beta_w = waviness_results['waviness_helix_angle']
+                                st.metric("波纹螺旋角 βw", f"{beta_w:.2f}°")
+                                
+                                # 与齿轮螺旋角比较
+                                if gear_params and hasattr(gear_params, 'helix_angle'):
+                                    beta_gear = abs(float(gear_params.helix_angle))
+                                    diff = abs(beta_w - beta_gear)
+                                    if diff < 5:
+                                        st.success(f"波纹角接近齿轮螺旋角({beta_gear:.1f}°)，可能与加工工艺相关")
+                                    else:
+                                        st.info(f"波纹角与齿轮螺旋角({beta_gear:.1f}°)差异较大")
+                            
+                            # 波纹频谱图
+                            st.markdown("**波纹频谱 (Waviness Spectrum):**")
+                            
+                            fig_spec, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3))
+                            
+                            # Profile方向频谱
+                            if waviness_results['profile_spectrum']:
+                                freq_p, mag_p = waviness_results['profile_spectrum']
+                                ax1.plot(freq_p[1:50], mag_p[1:50], 'b-', linewidth=1)
+                                ax1.set_xlabel('Order')
+                                ax1.set_ylabel('Amplitude (µm)')
+                                ax1.set_title('Profile Direction Spectrum')
+                                ax1.grid(True, alpha=0.3)
+                            
+                            # Lead方向频谱
+                            if waviness_results['lead_spectrum']:
+                                freq_l, mag_l = waviness_results['lead_spectrum']
+                                ax2.plot(freq_l[1:min(30, len(freq_l))], mag_l[1:min(30, len(mag_l))], 'r-', linewidth=1)
+                                ax2.set_xlabel('Order')
+                                ax2.set_ylabel('Amplitude (µm)')
+                                ax2.set_title('Lead Direction Spectrum')
+                                ax2.grid(True, alpha=0.3)
+                            
+                            plt.tight_layout()
+                            st.pyplot(fig_spec)
+                            plt.close(fig_spec)
+                            
+        except ImportError:
+            st.warning("波纹分析需要scipy库支持")
+        except Exception as e:
+            st.warning(f"波纹分析出错: {str(e)}")
+        
+        st.markdown("---")
+        st.markdown("### 🔧 磨削工艺影响分析 (Grinding Process Analysis)")
+        
+        # 分析磨削工艺影响
+        for idx, side in enumerate(['rechts', 'links']):
+            profiles = topografie_data[side]['profiles']
+            
+            if profiles:
+                data_matrix, z_positions, n_points = create_topography_map(topografie_data, side)
+                
+                if data_matrix is not None:
+                    side_name = '右齿面' if side == 'rechts' else '左齿面'
+                    
+                    with [col1, col2][idx]:
+                        st.markdown(f"**{side_name}工艺分析:**")
+                        
+                        # 计算各区域偏差
+                        n_rows, n_cols = data_matrix.shape
+                        
+                        # 齿根区域 (前1/3)
+                        root_region = data_matrix[:, :n_cols//3]
+                        # 齿中区域 (中间1/3)
+                        mid_region = data_matrix[:, n_cols//3:2*n_cols//3]
+                        # 齿顶区域 (后1/3)
+                        tip_region = data_matrix[:, 2*n_cols//3:]
+                        
+                        col_r, col_m, col_t = st.columns(3)
+                        with col_r:
+                            st.metric("齿根区RMS", f"{np.std(root_region):.2f} µm")
+                        with col_m:
+                            st.metric("齿中区RMS", f"{np.std(mid_region):.2f} µm")
+                        with col_t:
+                            st.metric("齿顶区RMS", f"{np.std(tip_region):.2f} µm")
+                        
+                        # 判断工艺问题
+                        issues = []
+                        
+                        # 检查系统性偏差
+                        mean_dev = np.mean(data_matrix)
+                        if abs(mean_dev) > 2:
+                            issues.append(f"系统性偏差: 平均偏差 {mean_dev:.2f}µm")
+                        
+                        # 检查齿根/齿顶差异
+                        root_mean = np.mean(root_region)
+                        tip_mean = np.mean(tip_region)
+                        if abs(root_mean - tip_mean) > 3:
+                            issues.append(f"齿形倾斜: 齿根{root_mean:.1f}µm vs 齿顶{tip_mean:.1f}µm")
+                        
+                        # 检查波纹度
+                        row_std = np.std(np.mean(data_matrix, axis=1))
+                        col_std = np.std(np.mean(data_matrix, axis=0))
+                        if row_std > 2 or col_std > 2:
+                            issues.append(f"明显波纹: Lead方向{row_std:.1f}µm, Profile方向{col_std:.1f}µm")
+                        
+                        if issues:
+                            st.warning("**检测到的问题:**")
+                            for issue in issues:
+                                st.write(f"  • {issue}")
+                        else:
+                            st.success("齿面质量良好，无明显工艺问题")
+        
+        st.markdown("---")
+        st.markdown("### 🔊 噪声影响评估 (Noise Impact Assessment)")
+        
+        # 噪声影响评估
+        for idx, side in enumerate(['rechts', 'links']):
+            profiles = topografie_data[side]['profiles']
+            
+            if profiles:
+                data_matrix, z_positions, n_points = create_topography_map(topografie_data, side)
+                
+                if data_matrix is not None:
+                    side_name = '右齿面' if side == 'rechts' else '左齿面'
+                    
+                    with [col1, col2][idx]:
+                        st.markdown(f"**{side_name}噪声评估:**")
+                        
+                        # 计算噪声相关指标
+                        total_rms = np.std(data_matrix)
+                        peak_to_valley = np.max(data_matrix) - np.min(data_matrix)
+                        
+                        # 噪声风险等级
+                        if total_rms < 1:
+                            noise_level = "低"
+                            noise_color = "green"
+                        elif total_rms < 3:
+                            noise_level = "中等"
+                            noise_color = "orange"
+                        else:
+                            noise_level = "高"
+                            noise_color = "red"
+                        
+                        col_n1, col_n2, col_n3 = st.columns(3)
+                        with col_n1:
+                            st.metric("总RMS", f"{total_rms:.2f} µm")
+                        with col_n2:
+                            st.metric("峰谷值", f"{peak_to_valley:.2f} µm")
+                        with col_n3:
+                            st.metric("噪声风险", noise_level)
+                        
+                        # 噪声分析说明
+                        if total_rms > 2:
+                            st.warning("""
+                            **噪声风险分析:**
+                            - 高波纹度可能导致齿轮啮合噪声
+                            - 建议检查磨削工艺参数
+                            - 可能需要优化砂轮修整参数
+                            """)
+                        else:
+                            st.success("齿面波纹度较低，噪声风险小")
+        
+        st.markdown("---")
         st.markdown("### 📖 拓普图说明")
         st.info("""
         **齿面TOPOGRAFIE拓普图** 显示整个齿面的偏差分布情况：
@@ -4080,7 +4321,11 @@ if uploaded_file is not None:
         - **Y轴**: 齿宽方向（从一端到另一端）
         - **颜色**: 偏差值（蓝色=负偏差，红色=正偏差）
         
-        通过拓普图可以直观地看到齿面的加工误差分布，识别系统性偏差和局部缺陷。
+        **波纹分析** 通过FFT频谱分析识别齿面波纹的主要阶次和波长。
+        
+        **波纹螺旋角 βw** 表示波纹在齿面上的倾斜方向，与加工工艺直接相关。
+        
+        **噪声影响** 齿面波纹度是齿轮传动噪声的主要来源之一，RMS值越大，噪声风险越高。
         """)
     
     elif page == '🤖 AI综合分析报告':
