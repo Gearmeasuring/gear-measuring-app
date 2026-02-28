@@ -588,6 +588,49 @@ st.markdown("""
         content: "浏览文件";
         font-size: 14px !important;
     }
+    
+    /* 侧边栏紧凑布局 */
+    [data-testid="stSidebar"] .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    [data-testid="stSidebar"] .stMarkdown {
+        margin-bottom: 0.5rem !important;
+    }
+    
+    [data-testid="stSidebar"] hr {
+        margin: 0.5rem 0 !important;
+    }
+    
+    [data-testid="stSidebar"] .stButton {
+        margin-bottom: 0.3rem !important;
+    }
+    
+    [data-testid="stSidebar"] .stSuccess {
+        margin-bottom: 0.3rem !important;
+        padding: 0.5rem !important;
+    }
+    
+    [data-testid="stSidebar"] .stCaption {
+        margin-bottom: 0.3rem !important;
+    }
+    
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3 {
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.3rem !important;
+    }
+    
+    [data-testid="stSidebar"] .stRadio > div {
+        margin-top: 0.3rem !important;
+    }
+    
+    [data-testid="stSidebar"] .stRadio label {
+        margin-bottom: 0.2rem !important;
+        padding: 0.2rem 0 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
