@@ -4203,6 +4203,15 @@ if uploaded_file is not None:
             ax_calc.axis('off')
             ax_calc.set_title('Waviness Helix Angle Calculation', fontsize=12, fontweight='bold')
             
+            # 安全格式化数值
+            Lp_val = Lp if Lp is not None else 0
+            Lh_val = Lh if Lh is not None else 1
+            waviness_val = waviness_angle if waviness_angle is not None else 0
+            contact_val = contact_angle if contact_angle is not None else 0
+            
+            Op_val = n_points / Lp_val if Lp_val > 0 else 0
+            Oh_val = len(z_positions) / Lh_val if Lh_val > 0 else 0
+            
             calc_text = f"""
 Calculation Process:
 
@@ -4217,24 +4226,24 @@ Calculation Process:
    Given:
    • N_points = {n_points}
    • N_profiles = {len(z_positions)}
-   • Op = {n_points/Lp if Lp else 'N/A':.1f}
-   • Oh = {len(z_positions)/Lh if Lh else 'N/A':.1f}
-   • Lp = {Lp:.2f} points
-   • Lh = {Lh:.2f} mm
+   • Op = {Op_val:.1f}
+   • Oh = {Oh_val:.1f}
+   • Lp = {Lp_val:.2f} points
+   • Lh = {Lh_val:.2f} mm
 
 3. Waviness Helix Angle:
    
    tan(βw) = Lp / Lh
    
-   βw = arctan({Lp:.2f} / {Lh:.2f})
-   βw = arctan({Lp/Lh if Lh else 0:.4f})
-   βw = {waviness_angle:.2f}°
+   βw = arctan({Lp_val:.2f} / {Lh_val:.2f})
+   βw = arctan({Lp_val/Lh_val if Lh_val > 0 else 0:.4f})
+   βw = {waviness_val:.2f}°
 
 4. Contact Angle (Base Helix Angle):
-   βb = {contact_angle:.2f}° (from gear parameters)
+   βb = {contact_val:.2f}° (from gear parameters)
 
 5. Angle Difference:
-   Δβ = |βw - βb| = {abs(waviness_angle - contact_angle) if contact_angle else 'N/A':.2f}°
+   Δβ = |βw - βb| = {abs(waviness_val - contact_val):.2f}°
 
 Interpretation:
 • If Δβ < 5°: Waviness parallel to contact line
@@ -4415,12 +4424,15 @@ Noise Assessment:
                                 
                                 # 与齿轮螺旋角比较
                                 if gear_params and hasattr(gear_params, 'helix_angle'):
-                                    beta_gear = abs(float(gear_params.helix_angle))
-                                    diff = abs(beta_w - beta_gear)
-                                    if diff < 5:
-                                        st.success(f"波纹角接近齿轮螺旋角({beta_gear:.1f}°)，可能与加工工艺相关")
-                                    else:
-                                        st.info(f"波纹角与齿轮螺旋角({beta_gear:.1f}°)差异较大")
+                                    try:
+                                        beta_gear = abs(float(str(gear_params.helix_angle).replace(',', '.')))
+                                        diff = abs(beta_w - beta_gear)
+                                        if diff < 5:
+                                            st.success(f"波纹角接近齿轮螺旋角({beta_gear:.1f}°)，可能与加工工艺相关")
+                                        else:
+                                            st.info(f"波纹角与齿轮螺旋角({beta_gear:.1f}°)差异较大")
+                                    except (ValueError, TypeError):
+                                        pass
                             
                             # 计算Lp和Lh
                             n_profiles = len(z_positions)
@@ -4432,7 +4444,10 @@ Noise Assessment:
                             # 获取齿轮螺旋角
                             contact_angle = None
                             if gear_params and hasattr(gear_params, 'helix_angle'):
-                                contact_angle = abs(float(gear_params.helix_angle))
+                                try:
+                                    contact_angle = abs(float(str(gear_params.helix_angle).replace(',', '.')))
+                                except (ValueError, TypeError):
+                                    contact_angle = None
                             
                             # 绘制详细的波纹分析图（类似论文中的图6和图7）
                             st.markdown("**📐 波纹螺旋角分析图:**")
