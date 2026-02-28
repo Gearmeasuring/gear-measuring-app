@@ -7,10 +7,12 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
+from matplotlib.colors import LinearSegmentedColormap
 import sys
 import os
 from datetime import datetime
 import tempfile
+import re
 
 rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS']
 rcParams['axes.unicode_minus'] = False
@@ -18,6 +20,126 @@ rcParams['axes.unicode_minus'] = False
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 from ripple_waviness_analyzer import RippleWavinessAnalyzer
+
+
+def parse_topografie_data(file_path):
+    with open(file_path, 'r', encoding='latin-1') as f:
+        lines = f.readlines()
+    
+    topografie_data = {
+        'rechts': {'profiles': [], 'flank': None},
+        'links': {'profiles': [], 'flank': None}
+    }
+    
+    current_section = None
+    current_values = []
+    current_meta = {}
+    undefined_value = -2147483.648
+    
+    for line in lines:
+        line_stripped = line.strip()
+        
+        if line_stripped.startswith('TOPOGRAFIE:'):
+            if current_section and current_values:
+                if current_meta.get('type') == 'Profil':
+                    side = current_meta.get('side', 'rechts')
+                    topografie_data[side]['profiles'].append({
+                        'position': current_meta.get('position', 0),
+                        'values': np.array(current_values)
+                    })
+                elif current_meta.get('type') == 'Flankenlinie':
+                    side = current_meta.get('side', 'rechts')
+                    topografie_data[side]['flank'] = {
+                        'diameter': current_meta.get('diameter', 0),
+                        'values': np.array(current_values)
+                    }
+            
+            current_values = []
+            current_meta = {}
+            
+            if '/Profil:' in line_stripped:
+                current_meta['type'] = 'Profil'
+                match = re.search(r'Profil:(\d+)\s+(rechts|links)', line_stripped)
+                if match:
+                    current_meta['profile_num'] = int(match.group(1))
+                    current_meta['side'] = match.group(2)
+                match_z = re.search(r'z=\s*(\d+\.\d+)', line_stripped)
+                if match_z:
+                    current_meta['position'] = float(match_z.group(1))
+                    
+            elif '/Flankenlinie:' in line_stripped:
+                current_meta['type'] = 'Flankenlinie'
+                match = re.search(r'Flankenlinie:\d+\s+(rechts|links)', line_stripped)
+                if match:
+                    current_meta['side'] = match.group(1)
+                match_d = re.search(r'd=\s*(\d+\.\d+)', line_stripped)
+                if match_d:
+                    current_meta['diameter'] = float(match_d.group(1))
+            
+            current_section = 'data'
+            
+        elif current_section == 'data' and line_stripped:
+            values = re.findall(r'[-+]?\d*\.\d+', line_stripped)
+            for v in values:
+                val = float(v)
+                if val != undefined_value:
+                    current_values.append(val)
+    
+    if current_section and current_values:
+        if current_meta.get('type') == 'Profil':
+            side = current_meta.get('side', 'rechts')
+            topografie_data[side]['profiles'].append({
+                'position': current_meta.get('position', 0),
+                'values': np.array(current_values)
+            })
+        elif current_meta.get('type') == 'Flankenlinie':
+            side = current_meta.get('side', 'rechts')
+            topografie_data[side]['flank'] = {
+                'diameter': current_meta.get('diameter', 0),
+                'values': np.array(current_values)
+            }
+    
+    for side in ['rechts', 'links']:
+        topografie_data[side]['profiles'].sort(key=lambda x: x['position'])
+    
+    return topografie_data
+
+
+def create_topography_map(topografie_data, side='rechts'):
+    profiles = topografie_data[side]['profiles']
+    
+    if not profiles:
+        return None, None, None
+    
+    n_profiles = len(profiles)
+    n_points = min(len(p['values']) for p in profiles)
+    
+    z_positions = [p['position'] for p in profiles]
+    
+    data_matrix = np.zeros((n_profiles, n_points))
+    for i, profile in enumerate(profiles):
+        values = profile['values'][:n_points]
+        data_matrix[i, :] = values
+    
+    return data_matrix, z_positions, n_points
+
+
+def plot_topography(data_matrix, z_positions, n_points, side='rechts', title_suffix=''):
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    colors = ['#0000FF', '#00FFFF', '#00FF00', '#FFFF00', '#FF0000']
+    cmap = LinearSegmentedColormap.from_list('gear_topo', colors, N=256)
+    
+    im = ax.imshow(data_matrix, aspect='auto', cmap=cmap, origin='lower',
+                   extent=[0, n_points-1, z_positions[0], z_positions[-1]])
+    
+    cbar = plt.colorbar(im, ax=ax, label='偏差 (µm)')
+    
+    ax.set_xlabel('齿高方向 (测量点)', fontsize=11)
+    ax.set_ylabel('齿宽方向 z (mm)', fontsize=11)
+    ax.set_title(f'齿面TOPOGRAFIE拓普图 - {side}侧{title_suffix}', fontsize=13)
+    
+    return fig, ax
 
 st.set_page_config(
     page_title="齿轮测量报告系统",
@@ -42,7 +164,7 @@ with st.sidebar:
     
     page = st.radio(
         "选择功能",
-        ['📄 专业报告', '📊 周节详细报表', '📈 单齿分析', '📉 合并曲线', '📊 频谱分析'],
+        ['📄 专业报告', '📊 周节详细报表', '🗺️ 齿面拓普图', '📈 单齿分析', '📉 合并曲线', '📊 频谱分析'],
         index=0
     )
 
@@ -189,6 +311,55 @@ if uploaded_file is not None:
             with cols[3]:
                 st.metric("左齿面 Fr", f"{pitch_left.Fr:.2f} μm")
     
+    elif page == '🗺️ 齿面拓普图':
+        st.markdown("## 齿面TOPOGRAFIE拓普图")
+        
+        with st.spinner("正在解析TOPOGRAFIE数据..."):
+            topografie_data = parse_topografie_data(temp_path)
+        
+        col1, col2 = st.columns(2)
+        
+        for idx, side in enumerate(['rechts', 'links']):
+            side_name = '右齿面' if side == 'rechts' else '左齿面'
+            profiles = topografie_data[side]['profiles']
+            flank = topografie_data[side]['flank']
+            
+            with [col1, col2][idx]:
+                st.markdown(f"### {side_name}")
+                
+                if profiles:
+                    st.markdown(f"**数据统计:** Profil数量: {len(profiles)}, z范围: {profiles[0]['position']:.1f}-{profiles[-1]['position']:.1f} mm")
+                    
+                    data_matrix, z_positions, n_points = create_topography_map(topografie_data, side)
+                    
+                    if data_matrix is not None:
+                        fig, ax = plot_topography(data_matrix, z_positions, n_points, side_name, f" ({uploaded_file.name})")
+                        st.pyplot(fig)
+                        
+                        st.markdown(f"**偏差范围:**")
+                        col_a, col_b, col_c, col_d = st.columns(4)
+                        with col_a:
+                            st.metric("最小值", f"{np.min(data_matrix):.2f} µm")
+                        with col_b:
+                            st.metric("最大值", f"{np.max(data_matrix):.2f} µm")
+                        with col_c:
+                            st.metric("平均值", f"{np.mean(data_matrix):.2f} µm")
+                        with col_d:
+                            st.metric("标准差", f"{np.std(data_matrix):.2f} µm")
+                else:
+                    st.warning(f"未找到{side_name}的TOPOGRAFIE数据")
+        
+        st.markdown("---")
+        st.markdown("### 拓普图说明")
+        st.info("""
+        **齿面TOPOGRAFIE拓普图** 显示整个齿面的偏差分布情况：
+        - **X轴**: 齿高方向（从齿根到齿顶）
+        - **Y轴**: 齿宽方向（从一端到另一端）
+        - **颜色**: 偏差值（蓝色=负偏差，红色=正偏差）
+        
+        通过拓普图可以直观地看到齿面的加工误差分布，识别系统性偏差和局部缺陷。
+        """)
+    
     elif page == '📈 单齿分析':
         st.markdown("## 单齿详细分析")
         
@@ -334,6 +505,7 @@ else:
     |------|------|
     | 📄 专业报告 | 齿形/齿向分析图表和数据表 |
     | 📊 周节详细报表 | 周节偏差 fp/Fp/Fr 分析 |
+    | 🗺️ 齿面拓普图 | 齿面TOPOGRAFIE偏差热力图 |
     | 📈 单齿分析 | 单个齿的齿形/齿向偏差曲线 |
     | 📉 合并曲线 | 0-360°合并曲线、高阶波纹度评价 |
     | 📊 频谱分析 | 阶次振幅相位分析 |
