@@ -4020,8 +4020,10 @@ if uploaded_file is not None:
             
             return data_matrix, z_positions, n_points
         
-        def plot_topography(data_matrix, z_positions, n_points, side='rechts', title_suffix=''):
-            fig, ax = plt.subplots(figsize=(10, 6))
+        def plot_topography(data_matrix, z_positions, n_points, side='rechts', title_suffix='', 
+                           waviness_angle=None, contact_angle=None):
+            """绘制拓普图，可选添加波纹螺旋角和接触线"""
+            fig, ax = plt.subplots(figsize=(10, 8))
             
             colors = ['#0000FF', '#00FFFF', '#00FF00', '#FFFF00', '#FF0000']
             cmap = LinearSegmentedColormap.from_list('gear_topo', colors, N=256)
@@ -4031,11 +4033,261 @@ if uploaded_file is not None:
             
             cbar = plt.colorbar(im, ax=ax, label='Deviation (µm)')
             
+            # 绘制波纹线（如果提供了波纹角）
+            if waviness_angle is not None:
+                # 将角度转换为斜率
+                # tan(βw) = Δz / Δx
+                beta_w_rad = np.radians(waviness_angle)
+                slope = np.tan(beta_w_rad)
+                
+                # 在图上绘制波纹线
+                x_center = n_points / 2
+                z_center = (z_positions[0] + z_positions[-1]) / 2
+                
+                # 绘制多条波纹线
+                for offset in [-3, -2, -1, 0, 1, 2, 3]:
+                    z_start = z_positions[0] + offset * 2
+                    if z_positions[0] <= z_start <= z_positions[-1]:
+                        x_at_z0 = x_center - (z_center - z_start) / slope
+                        x_at_z1 = x_center + (z_positions[-1] - z_center) / slope
+                        ax.plot([x_at_z0, x_at_z1], [z_start, z_positions[-1]], 
+                               'r-', linewidth=1.5, alpha=0.7)
+                
+                # 标注波纹角
+                ax.annotate('', xy=(x_center + 30, z_center + slope * 30), 
+                           xytext=(x_center, z_center),
+                           arrowprops=dict(arrowstyle='->', color='red', lw=2))
+                ax.text(x_center + 35, z_center + slope * 15, f'βw = {waviness_angle:.1f}°', 
+                       fontsize=11, color='red', fontweight='bold')
+            
+            # 绘制接触线（如果提供了接触角）
+            if contact_angle is not None:
+                beta_b_rad = np.radians(contact_angle)
+                slope_b = np.tan(beta_b_rad)
+                
+                x_center = n_points / 2
+                z_center = (z_positions[0] + z_positions[-1]) / 2
+                
+                # 绘制接触线
+                for offset in [-2, 0, 2]:
+                    z_start = z_positions[0] + offset * 3
+                    if z_positions[0] <= z_start <= z_positions[-1]:
+                        x_at_z0 = x_center - (z_center - z_start) / slope_b
+                        x_at_z1 = x_center + (z_positions[-1] - z_center) / slope_b
+                        ax.plot([x_at_z0, x_at_z1], [z_start, z_positions[-1]], 
+                               'b-', linewidth=2.5, alpha=0.8)
+                
+                # 标注接触角
+                ax.annotate('', xy=(x_center + 20, z_center + slope_b * 20), 
+                           xytext=(x_center, z_center),
+                           arrowprops=dict(arrowstyle='->', color='blue', lw=2))
+                ax.text(x_center + 25, z_center + slope_b * 10, f'βb = {contact_angle:.1f}°', 
+                       fontsize=11, color='blue', fontweight='bold')
+            
             ax.set_xlabel('Profile Direction (points)', fontsize=11)
             ax.set_ylabel('Lead Direction z (mm)', fontsize=11)
             ax.set_title(f'Tooth Surface TOPOGRAFIE - {side}{title_suffix}', fontsize=13)
             
+            # 添加root/tip标注
+            ax.text(-0.02, 0.02, 'root', transform=ax.transAxes, fontsize=10, 
+                   verticalalignment='bottom', color='black', fontweight='bold')
+            ax.text(0.98, 0.02, 'tip', transform=ax.transAxes, fontsize=10, 
+                   horizontalalignment='right', verticalalignment='bottom', 
+                   color='black', fontweight='bold')
+            
             return fig, ax
+        
+        def plot_waviness_analysis_diagram(data_matrix, z_positions, n_points, 
+                                          waviness_angle, contact_angle, Lp, Lh,
+                                          side='Right Flank'):
+            """绘制波纹分析示意图，类似论文中的图6和图7"""
+            fig = plt.figure(figsize=(14, 10))
+            
+            # 主图 - 拓普图带波纹线
+            ax_main = plt.subplot(2, 2, (1, 2))
+            
+            colors = ['#0000FF', '#00FFFF', '#00FF00', '#FFFF00', '#FF0000']
+            cmap = LinearSegmentedColormap.from_list('gear_topo', colors, N=256)
+            
+            im = ax_main.imshow(data_matrix, aspect='auto', cmap=cmap, origin='lower',
+                               extent=[0, n_points-1, z_positions[0], z_positions[-1]])
+            
+            cbar = plt.colorbar(im, ax=ax_main, label='Deviation (µm)')
+            
+            # 绘制波纹线
+            if waviness_angle is not None:
+                beta_w_rad = np.radians(waviness_angle)
+                slope_w = np.tan(beta_w_rad)
+                
+                x_center = n_points / 2
+                z_center = (z_positions[0] + z_positions[-1]) / 2
+                
+                # 绘制多条红色波纹线
+                for offset in np.linspace(-4, 4, 9):
+                    z_start = z_center + offset * Lh / 2
+                    if z_positions[0] <= z_start <= z_positions[-1]:
+                        x_offset = (z_start - z_center) / slope_w
+                        x_line = np.linspace(0, n_points-1, 100)
+                        z_line = z_center + slope_w * (x_line - x_center) + offset * Lh / 2
+                        mask = (z_line >= z_positions[0]) & (z_line <= z_positions[-1])
+                        ax_main.plot(x_line[mask], z_line[mask], 'r-', linewidth=1.5, alpha=0.6)
+                
+                # 绘制波纹角标注
+                x_arrow_start = x_center - 50
+                x_arrow_end = x_center + 50
+                z_arrow = z_center + slope_w * (x_arrow_start - x_center)
+                ax_main.annotate('', xy=(x_arrow_end, z_center + slope_w * 50), 
+                                xytext=(x_arrow_start, z_arrow),
+                                arrowprops=dict(arrowstyle='<->', color='darkred', lw=2))
+                ax_main.text(x_center, z_center + slope_w * 60, f'βw = {waviness_angle:.2f}°', 
+                            fontsize=12, color='darkred', fontweight='bold',
+                            horizontalalignment='center')
+            
+            # 绘制接触线
+            if contact_angle is not None:
+                beta_b_rad = np.radians(contact_angle)
+                slope_b = np.tan(beta_b_rad)
+                
+                x_center = n_points / 2
+                z_center = (z_positions[0] + z_positions[-1]) / 2
+                
+                # 绘制蓝色接触线
+                for offset in [-1, 0, 1]:
+                    z_start = z_center + offset * Lh
+                    if z_positions[0] <= z_start <= z_positions[-1]:
+                        x_offset = (z_start - z_center) / slope_b
+                        x_line = np.linspace(0, n_points-1, 100)
+                        z_line = z_center + slope_b * (x_line - x_center) + offset * Lh
+                        mask = (z_line >= z_positions[0]) & (z_line <= z_positions[-1])
+                        ax_main.plot(x_line[mask], z_line[mask], 'b-', linewidth=2.5, alpha=0.8)
+                
+                # 接触线标注
+                ax_main.text(n_points * 0.85, z_positions[-1] * 0.9, 
+                            f'Contact Line\nβb = {contact_angle:.2f}°', 
+                            fontsize=11, color='blue', fontweight='bold',
+                            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+            
+            # 波长标注
+            if Lp is not None and Lh is not None:
+                # Lp标注
+                x_lp_start = n_points * 0.1
+                x_lp_end = x_lp_start + Lp
+                z_lp = z_positions[0] + (z_positions[-1] - z_positions[0]) * 0.15
+                ax_main.annotate('', xy=(x_lp_end, z_lp), xytext=(x_lp_start, z_lp),
+                                arrowprops=dict(arrowstyle='<->', color='green', lw=2))
+                ax_main.text((x_lp_start + x_lp_end)/2, z_lp - 0.5, f'Lp = {Lp:.1f}', 
+                            fontsize=10, color='green', horizontalalignment='center')
+                
+                # Lh标注
+                x_lh = n_points * 0.05
+                z_lh_start = z_positions[0] + (z_positions[-1] - z_positions[0]) * 0.3
+                z_lh_end = z_lh_start + Lh
+                ax_main.annotate('', xy=(x_lh, z_lh_end), xytext=(x_lh, z_lh_start),
+                                arrowprops=dict(arrowstyle='<->', color='purple', lw=2))
+                ax_main.text(x_lh - 5, (z_lh_start + z_lh_end)/2, f'Lh = {Lh:.1f}', 
+                            fontsize=10, color='purple', rotation=90, verticalalignment='center')
+            
+            ax_main.set_xlabel('Profile Direction (points) - from root to tip', fontsize=11)
+            ax_main.set_ylabel('Lead Direction z (mm)', fontsize=11)
+            ax_main.set_title(f'Tooth Surface Topography with Waviness Pattern - {side}', fontsize=13, fontweight='bold')
+            
+            # 添加root/tip标注
+            ax_main.text(-0.02, 0.02, 'root', transform=ax_main.transAxes, fontsize=11, 
+                        verticalalignment='bottom', color='black', fontweight='bold')
+            ax_main.text(0.98, 0.02, 'tip', transform=ax_main.transAxes, fontsize=11, 
+                        horizontalalignment='right', verticalalignment='bottom', 
+                        color='black', fontweight='bold')
+            
+            # 左下图 - 计算过程
+            ax_calc = plt.subplot(2, 2, 3)
+            ax_calc.axis('off')
+            ax_calc.set_title('Waviness Helix Angle Calculation', fontsize=12, fontweight='bold')
+            
+            calc_text = f"""
+Calculation Process:
+
+1. FFT Spectrum Analysis:
+   • Profile direction: Find dominant order Op
+   • Lead direction: Find dominant order Oh
+
+2. Wavelength Calculation:
+   • Profile wavelength: Lp = N_points / Op
+   • Lead wavelength: Lh = N_profiles / Oh
+   
+   Given:
+   • N_points = {n_points}
+   • N_profiles = {len(z_positions)}
+   • Op = {n_points/Lp if Lp else 'N/A':.1f}
+   • Oh = {len(z_positions)/Lh if Lh else 'N/A':.1f}
+   • Lp = {Lp:.2f} points
+   • Lh = {Lh:.2f} mm
+
+3. Waviness Helix Angle:
+   
+   tan(βw) = Lp / Lh
+   
+   βw = arctan({Lp:.2f} / {Lh:.2f})
+   βw = arctan({Lp/Lh if Lh else 0:.4f})
+   βw = {waviness_angle:.2f}°
+
+4. Contact Angle (Base Helix Angle):
+   βb = {contact_angle:.2f}° (from gear parameters)
+
+5. Angle Difference:
+   Δβ = |βw - βb| = {abs(waviness_angle - contact_angle) if contact_angle else 'N/A':.2f}°
+
+Interpretation:
+• If Δβ < 5°: Waviness parallel to contact line
+  → High noise risk (quiet gear)
+• If Δβ > 15°: Waviness crosses contact line
+  → Lower noise risk (loud gear)
+"""
+            ax_calc.text(0.05, 0.95, calc_text, transform=ax_calc.transAxes, fontsize=9,
+                        verticalalignment='top', fontfamily='monospace',
+                        bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8))
+            
+            # 右下图 - 公式和参考
+            ax_formula = plt.subplot(2, 2, 4)
+            ax_formula.axis('off')
+            ax_formula.set_title('Reference Formulas', fontsize=12, fontweight='bold')
+            
+            formula_text = r"""
+Key Formulas from Literature:
+
+(1) Waviness Helix Angle:
+    
+    tan βw = Lp / Lh
+
+(2) Alternative calculation:
+    
+    tan βw = (db × π) / (pz × Op) = (Oh / pz) × tan βb
+
+Where:
+• db = base diameter
+• pz = pitch
+• Op = profile waviness order
+• Oh = lead waviness order
+• βb = base helix angle
+
+(3) When Op = Oh:
+    
+    tan βw = tan βb
+    → βw = βb
+
+This means waviness is parallel to 
+the contact line, causing maximum 
+noise impact.
+
+Noise Assessment:
+• Low risk:  βw differs from βb
+• High risk: βw ≈ βb
+"""
+            ax_formula.text(0.05, 0.95, formula_text, transform=ax_formula.transAxes, fontsize=10,
+                           verticalalignment='top',
+                           bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.3))
+            
+            plt.tight_layout()
+            return fig
         
         with st.spinner("正在解析TOPOGRAFIE数据..."):
             topografie_data = parse_topografie_data(temp_path)
@@ -4169,6 +4421,30 @@ if uploaded_file is not None:
                                         st.success(f"波纹角接近齿轮螺旋角({beta_gear:.1f}°)，可能与加工工艺相关")
                                     else:
                                         st.info(f"波纹角与齿轮螺旋角({beta_gear:.1f}°)差异较大")
+                            
+                            # 计算Lp和Lh
+                            n_profiles = len(z_positions)
+                            orders_p = waviness_results['dominant_orders']['profile']
+                            orders_l = waviness_results['dominant_orders']['lead']
+                            Lp = n_points / orders_p[0] if orders_p else n_points
+                            Lh = (z_positions[-1] - z_positions[0]) / orders_l[0] if orders_l else (z_positions[-1] - z_positions[0])
+                            
+                            # 获取齿轮螺旋角
+                            contact_angle = None
+                            if gear_params and hasattr(gear_params, 'helix_angle'):
+                                contact_angle = abs(float(gear_params.helix_angle))
+                            
+                            # 绘制详细的波纹分析图（类似论文中的图6和图7）
+                            st.markdown("**📐 波纹螺旋角分析图:**")
+                            
+                            fig_analysis = plot_waviness_analysis_diagram(
+                                data_matrix, z_positions, n_points,
+                                waviness_results['waviness_helix_angle'],
+                                contact_angle, Lp, Lh,
+                                side='Right Flank' if side == 'rechts' else 'Left Flank'
+                            )
+                            st.pyplot(fig_analysis)
+                            plt.close(fig_analysis)
                             
                             # 波纹频谱图
                             st.markdown("**波纹频谱 (Waviness Spectrum):**")
