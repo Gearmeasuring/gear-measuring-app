@@ -558,6 +558,36 @@ st.markdown("""
         background: #fee2e2;
         color: #dc2626;
     }
+    
+    /* 文件上传区域中文 */
+    .stFileUploader > div:first-child > div:first-child > div:first-child::before {
+        content: "拖放文件到此处" !important;
+        display: block;
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 4px;
+    }
+    
+    .stFileUploader [data-testid="stFileUploaderDropzone"] div div:first-child {
+        visibility: hidden;
+    }
+    
+    .stFileUploader [data-testid="stFileUploaderDropzone"] div div:first-child::after {
+        content: "限制 200MB 每个文件";
+        visibility: visible;
+        display: block;
+        font-size: 12px;
+        color: #888;
+    }
+    
+    .stFileUploader button {
+        font-size: 0px !important;
+    }
+    
+    .stFileUploader button::after {
+        content: "浏览文件";
+        font-size: 14px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
