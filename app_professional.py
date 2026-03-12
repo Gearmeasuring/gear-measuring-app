@@ -1,6 +1,6 @@
 """
 ================================================================================
-齿轮波纹度软件 - 完整专业版 (使用 gear_analysis_refactored)
+齿轮傅里叶分析软件 - 完整专业版 (使用 gear_analysis_refactored)
 ================================================================================
 
 使用 gear_analysis_refactored 模块的完整功能
@@ -738,7 +738,7 @@ with st.sidebar:
     uploaded_file = st.file_uploader(
         "上传 MKA 文件",
         type=['mka'],
-        help="支持 Klingenberg MKA 格式的齿轮波纹度数据文件"
+        help="支持 Klingenberg MKA 格式的齿轮傅里叶分析数据文件"
     )
 
     if uploaded_file is not None:
@@ -3526,7 +3526,7 @@ if uploaded_file is not None:
                     # 如果没有发现问题
                     if not analysis['issues']:
                         analysis['issues'].append("✅ 未发现明显异常")
-                        analysis['causes'].append("齿轮波纹度在正常范围内")
+                        analysis['causes'].append("齿轮傅里叶分析结果在正常范围内")
                         analysis['recommendations'].append("继续保持当前加工工艺，定期监测")
                     
                     return analysis
