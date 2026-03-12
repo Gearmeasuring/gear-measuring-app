@@ -4337,7 +4337,7 @@ Noise Assessment:
                     st.warning(f"未找到{'右齿面' if side == 'rechts' else '左齿面'}的TOPOGRAFIE数据")
         
         st.markdown("---")
-        st.markdown("### 📊 波纹度分析 (Waviness Analysis)")
+        st.markdown("### 📊 傅里叶分析 (Fourier Analysis)")
         
         # 波纹分析函数
         def analyze_waviness(data_matrix, z_positions, gear_params):
@@ -4453,7 +4453,7 @@ Noise Assessment:
                                     contact_angle = None
                             
                             # 绘制详细的波纹分析图（类似论文中的图6和图7）
-                            st.markdown("**📐 波纹螺旋角分析图:**")
+                            st.markdown("**📐 傅里叶分析图:**")
                             
                             fig_analysis = plot_waviness_analysis_diagram(
                                 data_matrix, z_positions, n_points,
@@ -4465,7 +4465,7 @@ Noise Assessment:
                             plt.close(fig_analysis)
                             
                             # 波纹频谱图
-                            st.markdown("**波纹频谱 (Waviness Spectrum):**")
+                            st.markdown("**傅里叶频谱 (Fourier Spectrum):**")
                             
                             fig_spec, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3))
                             
@@ -4544,11 +4544,11 @@ Noise Assessment:
                         if abs(root_mean - tip_mean) > 3:
                             issues.append(f"齿形倾斜: 齿根{root_mean:.1f}µm vs 齿顶{tip_mean:.1f}µm")
                         
-                        # 检查波纹度
+                        # 检查傅里叶分析结果
                         row_std = np.std(np.mean(data_matrix, axis=1))
                         col_std = np.std(np.mean(data_matrix, axis=0))
                         if row_std > 2 or col_std > 2:
-                            issues.append(f"明显波纹: Lead方向{row_std:.1f}µm, Profile方向{col_std:.1f}µm")
+                            issues.append(f"明显波动: Lead方向{row_std:.1f}µm, Profile方向{col_std:.1f}µm")
                         
                         if issues:
                             st.warning("**检测到的问题:**")
@@ -4600,12 +4600,12 @@ Noise Assessment:
                         if total_rms > 2:
                             st.warning("""
                             **噪声风险分析:**
-                            - 高波纹度可能导致齿轮啮合噪声
+                            - 高频波动可能导致齿轮啮合噪声
                             - 建议检查磨削工艺参数
                             - 可能需要优化砂轮修整参数
                             """)
                         else:
-                            st.success("齿面波纹度较低，噪声风险小")
+                            st.success("齿面质量良好，噪声风险小")
         
         st.markdown("---")
         st.markdown("### 📖 拓普图说明")
@@ -4619,7 +4619,7 @@ Noise Assessment:
         
         **波纹螺旋角 βw** 表示波纹在齿面上的倾斜方向，与加工工艺直接相关。
         
-        **噪声影响** 齿面波纹度是齿轮传动噪声的主要来源之一，RMS值越大，噪声风险越高。
+        **噪声影响** 齿面频谱特性是齿轮传动噪声的主要来源之一，RMS值越大，噪声风险越高。
         """)
     
     elif page == '🤖 AI综合分析报告':
