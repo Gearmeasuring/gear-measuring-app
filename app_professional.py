@@ -5356,7 +5356,7 @@ else:
                 <li>✅ 阶次振幅分析</li>
                 <li>✅ 极限曲线评估</li>
                 <li>✅ 主导阶次识别</li>
-                <li>✅ 波纹度评价</li>
+                <li>✅ 傅里叶分析</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
@@ -5426,7 +5426,7 @@ else:
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #666; padding: 1rem;">
-        <p>齿轮波纹度分析系统 专业版 | 基于 Python + Streamlit 构建</p>
+        <p>齿轮傅里叶分析系统 专业版 | 基于 Python + Streamlit 构建</p>
         <p style="font-size: 0.8rem;">© 2024 Gear Measurement Analysis System</p>
     </div>
     """, unsafe_allow_html=True)
