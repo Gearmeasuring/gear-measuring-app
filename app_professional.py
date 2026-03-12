@@ -5324,7 +5324,7 @@ else:
     st.markdown("""
     <div style="text-align: center; padding: 2rem;">
         <h1 class="main-title">⚙️ 齿轮测量分析系统</h1>
-        <p style="font-size: 1.2rem; color: #666;">专业版 - 齿轮波纹度分析与质量评估</p>
+        <p style="font-size: 1.2rem; color: #666;">专业版 - 齿轮傅里叶分析与质量评估</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -5418,7 +5418,7 @@ else:
         st.markdown("""
         #### 📁 支持格式
         - Klingelnberg MKA 格式
-        - 齿轮波纹度数据
+        - 齿轮傅里叶分析数据
         - 齿形/齿向测量数据
         - 周节测量数据
         """)
