@@ -381,7 +381,7 @@ def init_session_state():
 
 def login_page():
     """显示登录页面"""
-    st.title("🔐 齿轮波纹度软件")
+    st.title("🔐 齿轮傅里叶级数分析软件")
     st.caption("控制和改善你的齿轮噪声")
     st.markdown("---")
 
