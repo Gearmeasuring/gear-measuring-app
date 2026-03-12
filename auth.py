@@ -58,6 +58,21 @@ def load_users() -> Dict[str, Any]:
     users = _safe_read_json(USERS_FILE)
     if users is None:
         users = {}
+    # 如果用户数据为空，创建默认管理员账号
+    if not users:
+        # 创建默认管理员账号，密码: admin123
+        hashed_password, salt = hash_password("admin123")
+        users[DEFAULT_ADMIN] = {
+            "username": DEFAULT_ADMIN,
+            "password_hash": hashed_password,
+            "salt": salt,
+            "email": "",
+            "company": "Jinxing",
+            "role": "admin",
+            "created_at": datetime.now().isoformat()
+        }
+        save_users(users)
+        print(f"已创建默认管理员账号: {DEFAULT_ADMIN}, 密码: admin123")
     # 确保默认管理员存在且角色正确
     if DEFAULT_ADMIN in users:
         users[DEFAULT_ADMIN]["role"] = "admin"
